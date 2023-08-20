@@ -1,0 +1,14 @@
+[package]
+authors = { workspace = true }
+description = { workspace = true }
+edition = { workspace = true }
+name = "basin_client"
+homepage = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[features]
+
+[dependencies]

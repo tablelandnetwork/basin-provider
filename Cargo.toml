@@ -1,0 +1,12 @@
+[workspace]
+members = ["lib/client", "lib/dealer", "lib/evm", "lib/worker"]
+
+[workspace.package]
+authors = ["Textile <contact@textile.io"]
+description = "Daemons and tooling that make up the Tableland Basin Provider."
+edition = "2021"
+homepage = "https://github.com/tablelandnetwork/basin-provider"
+license = "MIT OR Apache-2.0"
+readme = "./README.md"
+repository = "https://github.com/tablelandnetwork/basin-provider"
+version = "0.1.0"
