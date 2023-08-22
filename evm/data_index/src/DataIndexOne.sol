@@ -2,9 +2,12 @@
 pragma solidity ^0.8.21;
 
 import {Ownable} from "openzeppelin/access/Ownable.sol";
+import {MarketAPI} from "filecoin-solidity/contracts/v0.8/MarketAPI.sol";
+import {MarketTypes} from "filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
+import {CommonTypes} from "filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
 
 contract DataIndexOne is Ownable {
-    struct Deal {
+    struct DealInfo {
         uint64 id;
         string publicationId;
         string selectorPath;
@@ -18,31 +21,31 @@ contract DataIndexOne is Ownable {
     );
 
     /// @dev A mapping that stores storage deals for each owner.
-    mapping(address => Deal[]) public ownerDeals;
+    mapping(address => DealInfo[]) public ownerDeals;
 
-    /// @dev Sets the deal info for a given publication.
-    ///      Can only be called by the contract owner.
-    /// @param deal The Filecoin deal object.
+    /// @dev Sets the deal info, given publication and data owner.
+    ///      Can only be called by the contract's owner.
+    /// @param dealInfo The Filecoin deal object.
     /// @param owner owner of the data.
     function createDealInfo(
-        Deal calldata deal,
+        DealInfo calldata dealInfo,
         address owner
     ) public onlyOwner {
         ownerDeals[owner].push(
-            Deal({
-                id: deal.id,
-                publicationId: deal.publicationId,
-                selectorPath: deal.selectorPath
+            DealInfo({
+                id: dealInfo.id,
+                publicationId: dealInfo.publicationId,
+                selectorPath: dealInfo.selectorPath
             })
         );
 
-        emit DealCreated(deal.id, deal.publicationId, owner);
+        emit DealCreated(dealInfo.id, dealInfo.publicationId, owner);
     }
 
     /// @dev Returns the deals for a given data owner.
     /// @param owner The owner address to get the deals for.
     /// @return deals The deals for the given data owner.
-    function dealsByOwner(address owner) public view returns (Deal[] memory) {
+    function dealsByOwner(address owner) public view returns (DealInfo[] memory) {
         return ownerDeals[owner];
     }
 
@@ -52,9 +55,9 @@ contract DataIndexOne is Ownable {
     function dealsByOwnerForPublication(
         address owner,
         string calldata publicationId
-    ) public view returns (Deal[] memory) {
-        Deal[] memory allOwnerDeals = ownerDeals[owner];
-        Deal[] memory publicationDeals = new Deal[](allOwnerDeals.length);
+    ) public view returns (DealInfo[] memory) {
+        DealInfo[] memory allOwnerDeals = ownerDeals[owner];
+        DealInfo[] memory publicationDeals = new DealInfo[](allOwnerDeals.length);
 
         // Loop through allOwnerDeals and find the ones for the given publication
         uint256 publicationDealsIndex = 0;
@@ -76,5 +79,55 @@ contract DataIndexOne is Ownable {
         }
 
         return publicationDeals;
+    }
+
+    // MARKET API Wrappers
+
+    function getDealClient(uint64 dealID) public view returns (uint64) {
+        return MarketAPI.getDealClient(dealID);
+    }
+
+    function getDealProvider(uint64 dealID) public view returns (uint64) {
+        return MarketAPI.getDealProvider(dealID);
+    }
+
+    function getDealLabel(
+        uint64 dealID
+    ) public view returns (CommonTypes.DealLabel memory) {
+        return MarketAPI.getDealLabel(dealID);
+    }
+
+    function getDealTerm(
+        uint64 dealID
+    ) public view returns (MarketTypes.GetDealTermReturn memory) {
+        return MarketAPI.getDealTerm(dealID);
+    }
+
+    function getDealTotalPrice(
+        uint64 dealID
+    ) public view returns (CommonTypes.BigInt memory) {
+        return MarketAPI.getDealTotalPrice(dealID);
+    }
+
+    function getDealClientCollateral(
+        uint64 dealID
+    ) public view returns (CommonTypes.BigInt memory) {
+        return MarketAPI.getDealClientCollateral(dealID);
+    }
+
+    function getDealProviderDollateral(
+        uint64 dealID
+    ) public view returns (CommonTypes.BigInt memory) {
+        return MarketAPI.getDealProviderCollateral(dealID);
+    }
+
+    function getDealVerified(uint64 dealID) public view returns (bool) {
+        return MarketAPI.getDealVerified(dealID);
+    }
+
+    function getDealActivation(
+        uint64 dealID
+    ) public view returns (MarketTypes.GetDealActivationReturn memory) {
+        return MarketAPI.getDealActivation(dealID);
     }
 }

@@ -20,7 +20,7 @@ contract DataIndexTest is Test {
 
         // Call the CreateDealInfo function
         dataIndex.createDealInfo(
-            DataIndexOne.Deal({
+            DataIndexOne.DealInfo({
                 id: dealId,
                 selectorPath: selectorPath,
                 publicationId: publicationId
@@ -29,7 +29,7 @@ contract DataIndexTest is Test {
         );
 
         // Get the deal for the publication
-        DataIndexOne.Deal[] memory deals = dataIndex.dealsByOwner(
+        DataIndexOne.DealInfo[] memory deals = dataIndex.dealsByOwner(
             address(this)
         );
 
@@ -53,17 +53,17 @@ contract DataIndexTest is Test {
         string memory publicationId = "publication123";
 
         // Create some test deals
-        DataIndexOne.Deal memory deal1 = DataIndexOne.Deal({
+        DataIndexOne.DealInfo memory deal1 = DataIndexOne.DealInfo({
             id: 1,
             selectorPath: "path1",
             publicationId: "publication123"
         });
-        DataIndexOne.Deal memory deal2 = DataIndexOne.Deal({
+        DataIndexOne.DealInfo memory deal2 = DataIndexOne.DealInfo({
             id: 2,
             selectorPath: "path2",
             publicationId: "publication123"
         });
-        DataIndexOne.Deal memory deal3 = DataIndexOne.Deal({
+        DataIndexOne.DealInfo memory deal3 = DataIndexOne.DealInfo({
             id: 3,
             selectorPath: "path3",
             publicationId: "publication321"
@@ -75,7 +75,7 @@ contract DataIndexTest is Test {
         dataIndex.createDealInfo(deal3, owner);
 
         // Call the function being tested
-        DataIndexOne.Deal[] memory deals = dataIndex.dealsByOwnerForPublication(
+        DataIndexOne.DealInfo[] memory deals = dataIndex.dealsByOwnerForPublication(
             owner,
             publicationId
         );
