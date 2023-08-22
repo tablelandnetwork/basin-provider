@@ -11,85 +11,86 @@ contract DataIndexTest is Test {
         dataIndex = new DataIndexOne();
     }
 
-    // Test the createPublication function
-    function testCreatePublication() public {
-        // Define the input parameters
-        address owner = address(0x123);
-        string memory publicationId = "123456";
-
-        // Call the createPublication function
-        dataIndex.createPublication(owner, publicationId);
-
-        // Get the publication for the owner
-        DataIndexOne.Publication[] memory publications = dataIndex
-            .publicationsByOwner(owner);
-
-        // Assert that the publication was created correctly
-        assertEq(
-            publications.length,
-            1,
-            "There should be one publication for the owner"
-        );
-        assertEq(
-            publications[0].owner,
-            owner,
-            "The owner of the publication should be correct"
-        );
-        assertEq(
-            publications[0].id,
-            publicationId,
-            "The ID of the publication should be correct"
-        );
-    }
-
     // Test the CreateDealInfo function
     function testCreateDealInfo() public {
         // Define the input parameters
         string memory publicationId = "123456";
-        uint256 dealId = 1;
-        uint256 dealExpiration = block.timestamp + 3600;
-        string memory dealStatus = "ACTIVE";
-        string memory miner = "f01278";
+        uint64 dealId = 1;
         string memory selectorPath = "path/to/selector";
 
         // Call the CreateDealInfo function
         dataIndex.createDealInfo(
             DataIndexOne.Deal({
                 id: dealId,
-                expiration: dealExpiration,
-                status: dealStatus,
-                minerId: miner,
-                selectorPath: selectorPath
+                selectorPath: selectorPath,
+                publicationId: publicationId
             }),
-            publicationId,
             address(this)
         );
 
         // Get the deal for the publication
-        DataIndexOne.Deal[] memory deals = dataIndex.dealsByPublicationId(
-            publicationId
+        DataIndexOne.Deal[] memory deals = dataIndex.dealsByOwner(
+            address(this)
         );
 
-        // Assert that the deal was created correctly
+        assertEq(deals.length, 1, "Number of deals should be 1");
+        assertEq(deals[0].id, dealId, "Publication ID should be correct");
         assertEq(
-            deals[0].expiration,
-            dealExpiration,
-            "The deal expiration should be correct"
-        );
-        assertEq(
-            deals[0].status,
-            dealStatus,
-            "The deal status should be correct"
-        );
-        assertEq(
-            deals[0].minerId,
-            miner,
-            "The miner address should be correct"
+            deals[0].publicationId,
+            publicationId,
+            "Publication ID should be correct"
         );
         assertEq(
             deals[0].selectorPath,
             selectorPath,
             "The selector path should be correct"
+        );
+    }
+
+    function testDealsByOwnerForPublication() public {
+        // Set up the contract and accounts
+        address owner = address(0x123);
+        string memory publicationId = "publication123";
+
+        // Create some test deals
+        DataIndexOne.Deal memory deal1 = DataIndexOne.Deal({
+            id: 1,
+            selectorPath: "path1",
+            publicationId: "publication123"
+        });
+        DataIndexOne.Deal memory deal2 = DataIndexOne.Deal({
+            id: 2,
+            selectorPath: "path2",
+            publicationId: "publication123"
+        });
+        DataIndexOne.Deal memory deal3 = DataIndexOne.Deal({
+            id: 3,
+            selectorPath: "path3",
+            publicationId: "publication321"
+        });
+
+        // Add the test deals to the contract
+        dataIndex.createDealInfo(deal1, owner);
+        dataIndex.createDealInfo(deal2, owner);
+        dataIndex.createDealInfo(deal3, owner);
+
+        // Call the function being tested
+        DataIndexOne.Deal[] memory deals = dataIndex.dealsByOwnerForPublication(
+            owner,
+            publicationId
+        );
+
+        // Check that the correct deals were returned
+        assertEq(deals.length, 2, "Expected 2 deals to be returned");
+
+        deals = dataIndex.dealsByOwnerForPublication(owner, "publication321");
+
+        // Check that the correct deals were returned
+        assertEq(deals.length, 1, "Expected one deal to be returned");
+        assertEq(
+            deals[0].id,
+            deal3.id,
+            "Returned deal does not match expected deal"
         );
     }
 }
