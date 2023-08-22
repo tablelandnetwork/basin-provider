@@ -4,3 +4,6 @@
 [submodule "evm/data_index/lib/openzeppelin-contracts"]
 	path = evm/data_index/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "evm/data_index/lib/filecoin-solidity"]
+	path = evm/data_index/lib/filecoin-solidity
+	url = https://github.com/filecoin-project/filecoin-solidity
