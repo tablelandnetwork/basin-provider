@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.21;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {DataIndexOne} from "../src/DataIndexOne.sol";
@@ -22,7 +22,7 @@ contract DataIndexTest is Test {
 
         // Get the publication for the owner
         DataIndexOne.Publication[] memory publications = dataIndex
-            .getPublicationsByOwner(owner);
+            .publicationsByOwner(owner);
 
         // Assert that the publication was created correctly
         assertEq(
@@ -53,7 +53,7 @@ contract DataIndexTest is Test {
         string memory selectorPath = "path/to/selector";
 
         // Call the CreateDealInfo function
-        dataIndex.CreateDealInfo(
+        dataIndex.createDealInfo(
             DataIndexOne.Deal({
                 id: dealId,
                 expiration: dealExpiration,
@@ -66,7 +66,7 @@ contract DataIndexTest is Test {
         );
 
         // Get the deal for the publication
-        DataIndexOne.Deal[] memory deals = dataIndex.getDealsByPublicationId(
+        DataIndexOne.Deal[] memory deals = dataIndex.dealsByPublicationId(
             publicationId
         );
 

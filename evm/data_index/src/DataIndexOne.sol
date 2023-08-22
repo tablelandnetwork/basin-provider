@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.21;
 
-import "openzeppelin/access/Ownable.sol";
+import {Ownable} from "openzeppelin/access/Ownable.sol";
 
 contract DataIndexOne is Ownable {
     struct Deal {
@@ -25,10 +25,10 @@ contract DataIndexOne is Ownable {
     }
 
     /// @dev A mapping that stores the publications for each owner.
-    mapping(address => Publication[]) public publicationsByOwner;
+    mapping(address => Publication[]) public ownerPublications;
 
     /// @dev A mapping that stores the data deals for each key.
-    mapping(string => Deal[]) public dealsByPublicationId;
+    mapping(string => Deal[]) public publicationDeals;
 
     /// @dev Sets the data deal for a given data owner.
     ///      Can only be called by the contract owner.
@@ -38,7 +38,7 @@ contract DataIndexOne is Ownable {
         address owner,
         string calldata publicationId
     ) public onlyOwner {
-        publicationsByOwner[owner].push(
+        ownerPublications[owner].push(
             Publication({owner: owner, id: publicationId})
         );
     }
@@ -48,12 +48,12 @@ contract DataIndexOne is Ownable {
     /// @param deal The Filecoin deal object.
     /// @param publicationId The publication ID to set the deal for.
     /// @param owner owner of the data.
-    function CreateDealInfo(
+    function createDealInfo(
         Deal calldata deal,
         string calldata publicationId,
         address owner
     ) public onlyOwner {
-        dealsByPublicationId[publicationId].push(
+        publicationDeals[publicationId].push(
             Deal({
                 id: deal.id,
                 expiration: deal.expiration,
@@ -69,18 +69,18 @@ contract DataIndexOne is Ownable {
     /// @dev Returns the publications for a given data owner.
     /// @param owner The owner address to get the deals for.
     /// @return publications The deals for the given data owner.
-    function getPublicationsByOwner(
+    function publicationsByOwner(
         address owner
     ) public view returns (Publication[] memory publications) {
-        return publicationsByOwner[owner];
+        return ownerPublications[owner];
     }
 
     /// @dev Returns the deals for a given publication.
     /// @param publicationId The publication ID to get the deals for.
     /// @return deals The deals for the given publication.
-    function getDealsByPublicationId(
+    function dealsByPublicationId(
         string calldata publicationId
     ) public view returns (Deal[] memory deals) {
-        return dealsByPublicationId[publicationId];
+        return publicationDeals[publicationId];
     }
 }
