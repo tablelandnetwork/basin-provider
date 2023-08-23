@@ -45,7 +45,9 @@ contract DataIndexOne is Ownable {
     /// @dev Returns the deals for a given data owner.
     /// @param owner The owner address to get the deals for.
     /// @return deals The deals for the given data owner.
-    function dealsByOwner(address owner) public view returns (DealInfo[] memory) {
+    function dealsByOwner(
+        address owner
+    ) public view returns (DealInfo[] memory) {
         return ownerDeals[owner];
     }
 
@@ -57,7 +59,9 @@ contract DataIndexOne is Ownable {
         string calldata publicationId
     ) public view returns (DealInfo[] memory) {
         DealInfo[] memory allOwnerDeals = ownerDeals[owner];
-        DealInfo[] memory publicationDeals = new DealInfo[](allOwnerDeals.length);
+        DealInfo[] memory publicationDeals = new DealInfo[](
+            allOwnerDeals.length
+        );
 
         // Loop through allOwnerDeals and find the ones for the given publication
         uint256 publicationDealsIndex = 0;
@@ -93,14 +97,18 @@ contract DataIndexOne is Ownable {
 
     function getDealLabel(
         uint64 dealID
-    ) public view returns (CommonTypes.DealLabel memory) {
-        return MarketAPI.getDealLabel(dealID);
+    ) public view returns (bytes memory, bool) {
+        CommonTypes.DealLabel memory label = MarketAPI.getDealLabel(dealID);
+        return (label.data, label.isString);
     }
 
-    function getDealTerm(
-        uint64 dealID
-    ) public view returns (MarketTypes.GetDealTermReturn memory) {
-        return MarketAPI.getDealTerm(dealID);
+    function getDealTerm(uint64 dealID) public view returns (int64, int64) {
+        MarketTypes.GetDealTermReturn memory term = MarketAPI.getDealTerm(
+            dealID
+        );
+        int64 start = CommonTypes.ChainEpoch.unwrap(term.start);
+        int64 end = CommonTypes.ChainEpoch.unwrap(term.end);
+        return (start, end);
     }
 
     function getDealTotalPrice(
@@ -115,7 +123,7 @@ contract DataIndexOne is Ownable {
         return MarketAPI.getDealClientCollateral(dealID);
     }
 
-    function getDealProviderDollateral(
+    function getDealProviderCollateral(
         uint64 dealID
     ) public view returns (CommonTypes.BigInt memory) {
         return MarketAPI.getDealProviderCollateral(dealID);
@@ -127,7 +135,12 @@ contract DataIndexOne is Ownable {
 
     function getDealActivation(
         uint64 dealID
-    ) public view returns (MarketTypes.GetDealActivationReturn memory) {
-        return MarketAPI.getDealActivation(dealID);
+    ) public view returns (int64, int64) {
+        MarketTypes.GetDealActivationReturn memory activation = MarketAPI
+            .getDealActivation(dealID);
+
+        int64 activated = CommonTypes.ChainEpoch.unwrap(activation.activated);
+        int64 terminated = CommonTypes.ChainEpoch.unwrap(activation.terminated);
+        return (activated, terminated);
     }
 }
