@@ -158,9 +158,7 @@ contract DataIndexOne is Ownable {
     /// @dev gives the activation period for a deal
     /// @param dealID the deal id
     /// @return start and end epoch for a deal
-    function getDealActivation(
-        uint64 dealID
-    ) public view returns (int64, int64) {
+    function dealActivation(uint64 dealID) public view returns (int64, int64) {
         MarketTypes.GetDealActivationReturn memory activation = MarketAPI
             .getDealActivation(dealID);
 
