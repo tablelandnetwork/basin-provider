@@ -87,22 +87,32 @@ contract DataIndexOne is Ownable {
 
     // MARKET API Wrappers
 
-    function getDealClient(uint64 dealID) public view returns (uint64) {
+    /// @dev returns the client id for a given deal
+    /// @param dealID the deal id
+    /// @return the client id
+    function dealClient(uint64 dealID) public view returns (uint64) {
         return MarketAPI.getDealClient(dealID);
     }
 
-    function getDealProvider(uint64 dealID) public view returns (uint64) {
+    /// @dev returns the provider id for a given deal
+    /// @param dealID the deal id
+    /// @return the provider id
+    function dealProvider(uint64 dealID) public view returns (uint64) {
         return MarketAPI.getDealProvider(dealID);
     }
 
-    function getDealLabel(
-        uint64 dealID
-    ) public view returns (bytes memory, bool) {
+    /// @dev returns the label for a deal
+    /// @param dealID the deal id
+    /// @return the label and if label isString for a deal
+    function dealLabel(uint64 dealID) public view returns (bytes memory, bool) {
         CommonTypes.DealLabel memory label = MarketAPI.getDealLabel(dealID);
         return (label.data, label.isString);
     }
 
-    function getDealTerm(uint64 dealID) public view returns (int64, int64) {
+    /// @dev returns the start and end epoch for a deal
+    /// @param dealID the deal id
+    /// @return the start and end epoch for a deal
+    function dealTerm(uint64 dealID) public view returns (int64, int64) {
         MarketTypes.GetDealTermReturn memory term = MarketAPI.getDealTerm(
             dealID
         );
@@ -111,28 +121,43 @@ contract DataIndexOne is Ownable {
         return (start, end);
     }
 
-    function getDealTotalPrice(
+    /// @dev returns the total price paid for a deal
+    /// @param dealID the deal id
+    /// @return the total price paid for a deal
+    function dealTotalPrice(
         uint64 dealID
     ) public view returns (CommonTypes.BigInt memory) {
         return MarketAPI.getDealTotalPrice(dealID);
     }
 
-    function getDealClientCollateral(
+    /// @dev gives the client's collateral amount for a deal
+    /// @param dealID the deal id
+    /// @return the client collateral for a deal
+    function dealClientCollateral(
         uint64 dealID
     ) public view returns (CommonTypes.BigInt memory) {
         return MarketAPI.getDealClientCollateral(dealID);
     }
 
-    function getDealProviderCollateral(
+    /// @dev gives the provider's collateral amount for a deal
+    /// @param dealID the deal id
+    /// @return the provider collateral for a deal
+    function dealProviderCollateral(
         uint64 dealID
     ) public view returns (CommonTypes.BigInt memory) {
         return MarketAPI.getDealProviderCollateral(dealID);
     }
 
-    function getDealVerified(uint64 dealID) public view returns (bool) {
+    /// @dev returns true if a deal is verified
+    /// @param dealID the deal id
+    /// @return verified
+    function dealVerified(uint64 dealID) public view returns (bool) {
         return MarketAPI.getDealVerified(dealID);
     }
 
+    /// @dev gives the activation period for a deal
+    /// @param dealID the deal id
+    /// @return start and end epoch for a deal
     function getDealActivation(
         uint64 dealID
     ) public view returns (int64, int64) {
