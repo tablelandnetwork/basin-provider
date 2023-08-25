@@ -6,7 +6,7 @@ import {MarketAPI} from "filecoin-solidity/contracts/v0.8/MarketAPI.sol";
 import {MarketTypes} from "filecoin-solidity/contracts/v0.8/types/MarketTypes.sol";
 import {CommonTypes} from "filecoin-solidity/contracts/v0.8/types/CommonTypes.sol";
 
-contract DataIndexOne is Ownable {
+contract DataIndex is Ownable {
     struct DealInfo {
         uint64 id;
         string publicationId;

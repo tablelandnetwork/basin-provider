@@ -2,13 +2,13 @@
 pragma solidity ^0.8.21;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {DataIndexOne} from "../src/DataIndexOne.sol";
+import {DataIndex} from "../src/DataIndex.sol";
 
 contract DataIndexTest is Test {
-    DataIndexOne public dataIndex;
+    DataIndex public dataIndex;
 
     constructor() {
-        dataIndex = new DataIndexOne();
+        dataIndex = new DataIndex();
     }
 
     // Test the CreateDealInfo function
@@ -20,7 +20,7 @@ contract DataIndexTest is Test {
 
         // Call the CreateDealInfo function
         dataIndex.createDealInfo(
-            DataIndexOne.DealInfo({
+            DataIndex.DealInfo({
                 id: dealId,
                 selectorPath: selectorPath,
                 publicationId: publicationId
@@ -29,7 +29,7 @@ contract DataIndexTest is Test {
         );
 
         // Get the deal for the publication
-        DataIndexOne.DealInfo[] memory deals = dataIndex.dealsByOwner(
+        DataIndex.DealInfo[] memory deals = dataIndex.dealsByOwner(
             address(this)
         );
 
@@ -53,17 +53,17 @@ contract DataIndexTest is Test {
         string memory publicationId = "publication123";
 
         // Create some test deals
-        DataIndexOne.DealInfo memory deal1 = DataIndexOne.DealInfo({
+        DataIndex.DealInfo memory deal1 = DataIndex.DealInfo({
             id: 1,
             selectorPath: "path1",
             publicationId: "publication123"
         });
-        DataIndexOne.DealInfo memory deal2 = DataIndexOne.DealInfo({
+        DataIndex.DealInfo memory deal2 = DataIndex.DealInfo({
             id: 2,
             selectorPath: "path2",
             publicationId: "publication123"
         });
-        DataIndexOne.DealInfo memory deal3 = DataIndexOne.DealInfo({
+        DataIndex.DealInfo memory deal3 = DataIndex.DealInfo({
             id: 3,
             selectorPath: "path3",
             publicationId: "publication321"
@@ -75,13 +75,42 @@ contract DataIndexTest is Test {
         dataIndex.createDealInfo(deal3, owner);
 
         // Call the function being tested
-        DataIndexOne.DealInfo[] memory deals = dataIndex.dealsByOwnerForPublication(
-            owner,
-            publicationId
-        );
+        DataIndex.DealInfo[] memory deals = dataIndex
+            .dealsByOwnerForPublication(owner, publicationId);
 
         // Check that the correct deals were returned
         assertEq(deals.length, 2, "Expected 2 deals to be returned");
+        assertEq(
+            deals[0].id,
+            deal1.id,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[0].publicationId,
+            deal1.publicationId,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[0].selectorPath,
+            deal1.selectorPath,
+            "Returned deal does not match expected deal"
+        );
+
+        assertEq(
+            deals[1].id,
+            deal2.id,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[1].publicationId,
+            deal2.publicationId,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[1].selectorPath,
+            deal2.selectorPath,
+            "Returned deal does not match expected deal"
+        );
 
         deals = dataIndex.dealsByOwnerForPublication(owner, "publication321");
 
@@ -90,6 +119,16 @@ contract DataIndexTest is Test {
         assertEq(
             deals[0].id,
             deal3.id,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[0].publicationId,
+            deal3.publicationId,
+            "Returned deal does not match expected deal"
+        );
+        assertEq(
+            deals[0].selectorPath,
+            deal3.selectorPath,
             "Returned deal does not match expected deal"
         );
     }
