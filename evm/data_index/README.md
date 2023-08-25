@@ -1,6 +1,8 @@
-## Foundry
+### Data Index
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+This is the Data Index contracts that is used to store Publication deals. Basin Provider deploys this contract and is responsible to add the deal info for publications
+
+This project is built using Foundy framework. Here is an overview of tools required to work with Foundry.
 
 Foundry consists of:
 
@@ -14,6 +16,15 @@ Foundry consists of:
 https://book.getfoundry.sh/
 
 ## Usage
+
+### Deploy
+
+```shell
+$ PRIVATE_KEY=<0xyourprivatekey> forge script script/DataIndex.s.sol:DataIndexScript --broadcast --rpc-url https://api.calibration.node.glif.io/rpc/v1 --skip-simulation --gas-estimate-multiplier 500
+```
+- DataIndex.s.sol contains the deployment script
+- `--skip-simulation` and `--gas-estimate-multiplier` are current workaround to deploy on filecoin related networks
+
 
 ### Build
 
@@ -43,12 +54,6 @@ $ forge snapshot
 
 ```shell
 $ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
 ### Cast
