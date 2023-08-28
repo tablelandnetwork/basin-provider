@@ -27,7 +27,7 @@ impl publications::Server for Publications {
         let rel = args.get_rel().unwrap().to_string();
         let schema = args.get_schema().unwrap();
         let owner = args.get_owner().unwrap();
-        let owner_addr = Address::from_slice(owner.as_ref());
+        let owner_addr = Address::from_slice(owner);
         let table_stmt = schema_to_table_create_sql(ns.clone(), rel, schema).unwrap();
 
         let p = self.pool.clone();

@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/github/license/tablelandnetwork/basin-provider.svg)](./LICENSE)
 [![standard-readme compliant](https://img.shields.io/badge/standard--readme-OK-green.svg)](https://github.com/RichardLitt/standard-readme)
 
-> Provider for Tableland Basin: 
+> The Tableland Basin Provider
 
 # Table of Contents
 

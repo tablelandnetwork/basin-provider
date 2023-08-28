@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Textile <contact@textile.io"]
-description = "Daemons and tooling that make up the Tableland Basin Provider."
+description = "The Tableland Basin Provider."
 edition = "2021"
 homepage = "https://github.com/tablelandnetwork/basin-provider"
 license = "MIT OR Apache-2.0"

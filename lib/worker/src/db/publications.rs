@@ -19,8 +19,8 @@ pub async fn namespace_create(
     .await?;
 
     // Create schema for the namespace
-    sqlx::query("CREATE SCHEMA IF NOT EXISTS $1")
-        .bind(ns)
+    // fixme: dunno why `bind` isn't working here
+    sqlx::query(format!("CREATE SCHEMA IF NOT EXISTS {}", ns).as_str())
         .execute(pool)
         .await
 }
@@ -91,7 +91,7 @@ pub fn schema_to_table_create_sql(
             }
         }
     }
-    if sql_pks != "" {
+    if !sql_pks.is_empty() {
         sql_cols = format!("{},PRIMARY KEY ({})", sql_cols, sql_pks);
     }
     let sql = format!("CREATE TABLE {}.{} ({})", ns, rel, sql_cols);
@@ -136,7 +136,7 @@ pub fn tx_to_table_inserts_sql(
             }
         }
         inserts.push(
-            format!("INSERT INTO {}.{} ({}) VALUES({})", ns, rel, cols, vals).replace("\"", "'"),
+            format!("INSERT INTO {}.{} ({}) VALUES({})", ns, rel, cols, vals).replace('\"', "'"),
         );
     }
     Ok(inserts)

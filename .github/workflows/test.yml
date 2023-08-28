@@ -37,6 +37,11 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           override: true
 
+      - name: Install Cap'n Proto
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y capnproto libcapnp-dev
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
