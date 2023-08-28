@@ -1,0 +1,13 @@
+services:
+  crdb:
+    image: cockroachdb/cockroach:v23.1.8
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+#    environment:
+#      - COCKROACH_DATABASE=basin
+#      - COCKROACH_USER=provider
+#      - COCKROACH_PASSWORD=tableland
+    command: start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=localhost
+#    volumes:
+#      - "${PWD}/cockroach-data/crdb:/cockroach/cockroach-data"

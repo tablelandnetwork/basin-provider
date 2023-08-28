@@ -10,3 +10,19 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
+basin_protocol = { path = "../protocol" }
+capnp = "0.17.2"
+capnp-rpc = "0.17.0"
+tokio-util = { version = "0.7.8", features = ["compat"] }
+futures = "0.3.28"
+anyhow = "1.0.75"
+sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls"] }
+tokio = { version = "1.32.0", features = ["net", "rt", "macros"]}
+dotenvy = "0.15.7"
+serde_json = "1.0.105"
+secp256k1 = { version = "0.27.0", features = ["recovery"] }
+thiserror = "1.0.47"
+primitive-types = "0.12.1"
+once_cell = "1.18.0"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+array-bytes = "6.1.0"
