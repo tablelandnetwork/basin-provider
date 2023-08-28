@@ -20,7 +20,7 @@ pub enum RecoveryError {
     InvalidSignature,
 }
 
-/// Address
+/// Ethereum-like address (right-most 160 bits of a Keccak hash of an ECDSA public key)
 pub type Address = H160;
 
 /// Recover a sender, given message and the signature.

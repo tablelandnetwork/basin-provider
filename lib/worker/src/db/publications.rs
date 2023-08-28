@@ -95,7 +95,6 @@ pub fn schema_to_table_create_sql(
         sql_cols = format!("{},PRIMARY KEY ({})", sql_cols, sql_pks);
     }
     let sql = format!("CREATE TABLE {}.{} ({})", ns, rel, sql_cols);
-
     Ok(sql)
 }
 
@@ -121,16 +120,13 @@ pub fn tx_to_table_inserts_sql(
             }
         }
 
-        let columns = record.get_columns().unwrap();
-
         let mut cols = String::new();
         let mut vals = String::new();
-
+        let columns = record.get_columns().unwrap();
         for (i, column) in columns.iter().enumerate() {
             let name = column.get_name().unwrap();
             let value: serde_json::Value =
                 serde_json::from_slice(column.get_value().unwrap()).unwrap();
-
             if i == 0 {
                 cols = name.into();
                 vals = value.to_string();
@@ -139,11 +135,9 @@ pub fn tx_to_table_inserts_sql(
                 vals = format!("{},{}", vals, value);
             }
         }
-
         inserts.push(
             format!("INSERT INTO {}.{} ({}) VALUES({})", ns, rel, cols, vals).replace("\"", "'"),
         );
     }
-
     Ok(inserts)
 }
