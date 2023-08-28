@@ -1,7 +1,7 @@
 use crate::crypto::Address;
 use basin_protocol::{tableschema, tx};
 use sqlx::postgres::{PgPool, PgQueryResult};
-use sqlx::Error;
+use sqlx::{Error, Row};
 
 /// Adds a new namespace for owner.
 pub async fn namespace_create(
@@ -19,7 +19,7 @@ pub async fn namespace_create(
     .await?;
 
     // Create schema for the namespace
-    sqlx::query("CREATE SCHEMA IF NOT EXISTS ?")
+    sqlx::query("CREATE SCHEMA IF NOT EXISTS $1")
         .bind(ns)
         .execute(pool)
         .await
@@ -39,12 +39,22 @@ pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<(), E
     txn.commit().await
 }
 
-// Runs sqlx query within a database transaction.
+/// Runs sqlx query within a database transaction.
 async fn txn_query(
     txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     stmt: &str,
 ) -> Result<PgQueryResult, Error> {
     sqlx::query(stmt).execute(&mut **txn).await
+}
+
+/// Returns whether or not the namespace is owned by `owner`.
+pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> anyhow::Result<bool> {
+    let res = sqlx::query("SELECT id FROM namespaces WHERE name=$1 AND owner=$2")
+        .bind(ns)
+        .bind(owner.as_bytes())
+        .fetch_one(pool)
+        .await?;
+    Ok(!res.is_empty())
 }
 
 /// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.

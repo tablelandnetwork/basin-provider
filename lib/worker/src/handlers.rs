@@ -1,7 +1,7 @@
 use crate::crypto::{keccak256, recover, Address};
 use crate::db::{
-    namespace_create, pub_table_create, pub_table_insert, schema_to_table_create_sql,
-    tx_to_table_inserts_sql,
+    is_namespace_owner, namespace_create, pub_table_create, pub_table_insert,
+    schema_to_table_create_sql, tx_to_table_inserts_sql,
 };
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
@@ -40,7 +40,6 @@ impl publications::Server for Publications {
 
     /// Receives publication data.
     /// fixme: error handling
-    /// fixme: check namespace is owned by addr
     fn push(
         &mut self,
         params: publications::PushParams,
@@ -51,13 +50,18 @@ impl publications::Server for Publications {
         let rel = args.get_rel().unwrap().to_string();
         let tx = args.get_tx().unwrap();
         let sig = args.get_sig().unwrap();
-        let addr = recover_addr(tx, sig);
-        let insert_stmt = tx_to_table_inserts_sql(ns, rel, tx).unwrap();
+        let owner_addr = recover_addr(tx, sig);
+        let insert_stmt = tx_to_table_inserts_sql(ns.clone(), rel, tx).unwrap();
 
         let p = self.pool.clone();
         Promise::from_future(async move {
-            pub_table_insert(&p, insert_stmt).await.unwrap();
-            Ok(())
+            let is_owner = is_namespace_owner(&p, ns, owner_addr).await.unwrap();
+            if is_owner {
+                pub_table_insert(&p, insert_stmt).await.unwrap();
+                Ok(())
+            } else {
+                Err(capnp::Error::failed("Unauthorized".into()))
+            }
         })
     }
 }
