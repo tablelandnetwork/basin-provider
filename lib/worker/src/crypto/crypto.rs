@@ -67,13 +67,3 @@ pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
     hasher.finalize(&mut output);
     output
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn it_works() {
-//
-//     }
-// }

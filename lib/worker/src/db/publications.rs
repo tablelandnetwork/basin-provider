@@ -1,63 +1,139 @@
 use crate::crypto::Address;
 use basin_protocol::{tableschema, tx};
-use sqlx::postgres::PgPool;
+use sqlx::postgres::{PgPool, PgQueryResult};
+use sqlx::Error;
 
-// 1. create ns if not exists
-// 2. create schema for ns
-// 3. add table in ns for pub
-// 4. setup changelog
-
-// Adds a new namespace for owner.
-pub async fn add_namespace<'a>(
+/// Adds a new namespace for owner.
+pub async fn namespace_create(
     pool: &PgPool,
     ns: String,
-    rel: String,
-    // schema: tableschema::Reader<'a>,
     owner: Address,
-) -> anyhow::Result<()> {
+) -> Result<PgQueryResult, Error> {
     // Insert a new namespace for owner
     sqlx::query!(
-        "
-INSERT INTO namespaces ( name, owner )
-VALUES ( $1, $2 )
-ON CONFLICT (name) DO NOTHING
-RETURNING id
-        ",
+        "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
         ns.clone(),
         owner.as_bytes()
     )
-    .fetch_one(pool)
+    .execute(pool)
     .await?;
 
     // Create schema for the namespace
-    let schema_stmt = format!("CREATE SCHEMA IF NOT EXISTS {}", ns);
-    sqlx::query(schema_stmt.as_str()).execute(pool).await?;
-
-    Ok(())
+    sqlx::query("CREATE SCHEMA IF NOT EXISTS ?")
+        .bind(ns)
+        .execute(pool)
+        .await
 }
 
-// pub async fn append_row(pool: &PgPool) -> anyhow::Result<()> {
-//
-// }
+/// Creates a table for a new pub.
+pub async fn pub_table_create(pool: &PgPool, stmt: &str) -> Result<PgQueryResult, Error> {
+    sqlx::query(stmt).execute(pool).await
+}
 
-// list by owner?
-// list tables under schema
-// pub async fn list_publications(pool: &PgPool, address: String) -> anyhow::Result<()> {
-//     let recs = sqlx::query!(
-//         r#"
-// SELECT id, address
-// FROM publications
-// WHERE address=$1
-// ORDER BY id
-//         "#,
-//         address
-//     )
-//     .fetch_all(pool)
-//     .await?;
-//
-//     for rec in recs {
-//         println!("- {}: {}", rec.id, &rec.address);
-//     }
-//
-//     Ok(())
-// }
+/// Creates a table for a new pub.
+pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<(), Error> {
+    let mut txn = pool.begin().await?;
+    for s in stmts {
+        txn_query(&mut txn, &s).await?;
+    }
+    txn.commit().await
+}
+
+// Runs sqlx query within a database transaction.
+async fn txn_query(
+    txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    stmt: &str,
+) -> Result<PgQueryResult, Error> {
+    sqlx::query(stmt).execute(&mut **txn).await
+}
+
+/// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.
+/// fixme: error handling
+pub fn schema_to_table_create_sql(
+    ns: String,
+    rel: String,
+    schema: tableschema::Reader,
+) -> anyhow::Result<String> {
+    let columns = schema.get_columns().unwrap();
+    let mut sql_cols = String::new();
+    let mut sql_pks = String::new();
+
+    for (i, column) in columns.iter().enumerate() {
+        let name = column.get_name().unwrap();
+        let ctype = column.get_type().unwrap();
+        let mut sql_col = format!("{} {}", name, ctype);
+
+        let is_nullable = column.get_is_nullable();
+        if is_nullable {
+            sql_col = format!("{} {}", sql_col, "NOT NULL");
+        }
+        let is_pk = column.get_is_part_of_primary_key();
+
+        if i == 0 {
+            sql_cols = sql_col;
+            if is_pk {
+                sql_pks = name.into();
+            }
+        } else {
+            sql_cols = format!("{},{}", sql_cols, sql_col);
+            if is_pk {
+                sql_pks = format!("{},{}", sql_pks, name);
+            }
+        }
+    }
+    if sql_pks != "" {
+        sql_cols = format!("{},PRIMARY KEY ({})", sql_cols, sql_pks);
+    }
+    let sql = format!("CREATE TABLE {}.{} ({})", ns, rel, sql_cols);
+
+    Ok(sql)
+}
+
+/// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
+/// Note: Instead of a SQL transaction, we could use a bulk insert. However, can
+/// we be sure that the columns will always match across records in a `tx::Reader`?
+/// fixme: error handling
+pub fn tx_to_table_inserts_sql(
+    ns: String,
+    rel: String,
+    txn: tx::Reader,
+) -> anyhow::Result<Vec<String>> {
+    let records = txn.get_records().unwrap();
+
+    let mut inserts: Vec<String> = Vec::new();
+    for record in records {
+        let action = record.get_action().unwrap();
+        match action {
+            "I" => {}
+            _ => {
+                // fixme: properly handle cases (return error for other types?)
+                continue;
+            }
+        }
+
+        let columns = record.get_columns().unwrap();
+
+        let mut cols = String::new();
+        let mut vals = String::new();
+
+        for (i, column) in columns.iter().enumerate() {
+            let name = column.get_name().unwrap();
+            let value: serde_json::Value =
+                serde_json::from_slice(column.get_value().unwrap()).unwrap();
+
+            if i == 0 {
+                cols = name.into();
+                vals = value.to_string();
+            } else {
+                cols = format!("{},{}", cols, name);
+                vals = format!("{},{}", vals, value);
+            }
+        }
+
+        inserts.push(
+            format!("INSERT INTO {}.{} ({}) VALUES({})", ns, rel, cols, vals).replace("\"", "'"),
+        );
+    }
+
+    Ok(inserts)
+}
