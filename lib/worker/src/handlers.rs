@@ -6,6 +6,7 @@ use crate::db::{
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
 use capnp_rpc::pry;
+use log::debug;
 use sqlx::postgres::PgPool;
 
 /// RPC service wrapper for publications.
@@ -28,7 +29,15 @@ impl publications::Server for Publications {
         let schema = args.get_schema().unwrap();
         let owner = args.get_owner().unwrap();
         let owner_addr = Address::from_slice(owner);
-        let table_stmt = schema_to_table_create_sql(ns.clone(), rel, schema).unwrap();
+        let table_stmt = schema_to_table_create_sql(ns.clone(), rel.clone(), schema).unwrap();
+
+        debug!(
+            "publication create {}.{} for {}: {}",
+            ns.clone(),
+            rel,
+            owner_addr.to_string(),
+            table_stmt
+        );
 
         let p = self.pool.clone();
         Promise::from_future(async move {
@@ -51,7 +60,15 @@ impl publications::Server for Publications {
         let tx = args.get_tx().unwrap();
         let sig = args.get_sig().unwrap();
         let owner_addr = recover_addr(tx, sig);
-        let insert_stmt = tx_to_table_inserts_sql(ns.clone(), rel, tx).unwrap();
+        let insert_stmt = tx_to_table_inserts_sql(ns.clone(), rel.clone(), tx).unwrap();
+
+        debug!(
+            "publication push {}.{} for {}: {:?}",
+            ns.clone(),
+            rel,
+            owner_addr.to_string(),
+            insert_stmt
+        );
 
         let p = self.pool.clone();
         Promise::from_future(async move {
