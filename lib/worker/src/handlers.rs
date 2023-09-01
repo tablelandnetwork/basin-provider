@@ -1,8 +1,6 @@
 use crate::crypto::{keccak256, recover, Address};
-use crate::db::{
-    is_namespace_owner, namespace_create, pub_table_create, pub_table_insert,
-    schema_to_table_create_sql, tx_to_table_inserts_sql,
-};
+use crate::db::{is_namespace_owner, namespace_create, pub_table_create, pub_table_insert};
+use crate::helpers::{schema_to_table_create_sql, tx_to_table_inserts_sql};
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
 use capnp_rpc::pry;
@@ -16,7 +14,6 @@ pub struct Publications {
 
 impl publications::Server for Publications {
     /// Receives new namespace requests.
-    /// fixme: validate owner byte length is address (42)
     fn create(
         &mut self,
         params: publications::CreateParams,
@@ -26,21 +23,20 @@ impl publications::Server for Publications {
         let ns = pry!(args.get_ns()).to_string();
         let rel = pry!(args.get_rel()).to_string();
         let schema = pry!(args.get_schema());
-        let owner = pry!(args.get_owner());
-        let owner_addr = Address::from_slice(owner);
+        let owner = Address::from_slice(pry!(args.get_owner()));
         let table_stmt = pry!(schema_to_table_create_sql(ns.clone(), rel.clone(), schema));
 
         debug!(
             "publication create {}.{} for {}: {}",
             ns.clone(),
             rel,
-            owner_addr.to_string(),
+            owner.to_string(),
             table_stmt
         );
 
         let p = self.pool.clone();
         Promise::from_future(async move {
-            namespace_create(&p, ns, owner_addr).await?;
+            namespace_create(&p, ns, owner).await?;
             pub_table_create(&p, &table_stmt).await?;
             Ok(())
         })
@@ -57,20 +53,20 @@ impl publications::Server for Publications {
         let rel = pry!(args.get_rel()).to_string();
         let tx = pry!(args.get_tx());
         let sig = pry!(args.get_sig());
-        let owner_addr = pry!(recover_addr(tx, sig));
+        let owner = pry!(recover_addr(tx, sig));
         let insert_stmt = pry!(tx_to_table_inserts_sql(ns.clone(), rel.clone(), tx));
 
         debug!(
             "publication push {}.{} for {}: {:?}",
             ns.clone(),
             rel,
-            owner_addr.to_string(),
+            owner.to_string(),
             insert_stmt
         );
 
         let p = self.pool.clone();
         Promise::from_future(async move {
-            let is_owner = is_namespace_owner(&p, ns, owner_addr).await?;
+            let is_owner = is_namespace_owner(&p, ns, owner).await?;
             if is_owner {
                 pub_table_insert(&p, insert_stmt).await?;
                 Ok(())

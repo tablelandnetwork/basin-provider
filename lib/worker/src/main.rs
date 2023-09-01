@@ -1,6 +1,7 @@
 mod crypto;
 mod db;
 mod handlers;
+mod helpers;
 
 use basin_protocol::publications;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
