@@ -1,14 +1,11 @@
 use crate::crypto::Address;
+use crate::db::Result;
 use basin_protocol::{tableschema, tx};
 use sqlx::postgres::{PgPool, PgQueryResult};
-use sqlx::{Error, Row};
+use sqlx::Row;
 
 /// Adds a new namespace for owner.
-pub async fn namespace_create(
-    pool: &PgPool,
-    ns: String,
-    owner: Address,
-) -> Result<PgQueryResult, Error> {
+pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Result<()> {
     // Insert a new namespace for owner
     sqlx::query!(
         "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
@@ -19,36 +16,34 @@ pub async fn namespace_create(
     .await?;
 
     // Create schema for the namespace
-    // fixme: dunno why `bind` isn't working here
-    sqlx::query(format!("CREATE SCHEMA IF NOT EXISTS {}", ns).as_str())
-        .execute(pool)
-        .await
+    let schema_stmt = format!("CREATE SCHEMA IF NOT EXISTS {}", ns);
+    Ok(sqlx::query(&schema_stmt).execute(pool).await.map(|_| ())?)
 }
 
 /// Creates a table for a new pub.
-pub async fn pub_table_create(pool: &PgPool, stmt: &str) -> Result<PgQueryResult, Error> {
-    sqlx::query(stmt).execute(pool).await
+pub async fn pub_table_create(pool: &PgPool, stmt: &str) -> Result<()> {
+    Ok(sqlx::query(stmt).execute(pool).await.map(|_| ())?)
 }
 
 /// Creates a table for a new pub.
-pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<(), Error> {
+pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<()> {
     let mut txn = pool.begin().await?;
     for s in stmts {
         txn_query(&mut txn, &s).await?;
     }
-    txn.commit().await
+    Ok(txn.commit().await.map(|_| ())?)
 }
 
 /// Runs sqlx query within a database transaction.
 async fn txn_query(
     txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     stmt: &str,
-) -> Result<PgQueryResult, Error> {
+) -> sqlx::Result<PgQueryResult> {
     sqlx::query(stmt).execute(&mut **txn).await
 }
 
 /// Returns whether or not the namespace is owned by `owner`.
-pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> anyhow::Result<bool> {
+pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> Result<bool> {
     let res = sqlx::query("SELECT id FROM namespaces WHERE name=$1 AND owner=$2")
         .bind(ns)
         .bind(owner.as_bytes())
@@ -58,19 +53,18 @@ pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> an
 }
 
 /// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.
-/// fixme: error handling
 pub fn schema_to_table_create_sql(
     ns: String,
     rel: String,
     schema: tableschema::Reader,
-) -> anyhow::Result<String> {
-    let columns = schema.get_columns().unwrap();
+) -> capnp::Result<String> {
+    let columns = schema.get_columns()?;
     let mut sql_cols = String::new();
     let mut sql_pks = String::new();
 
     for (i, column) in columns.iter().enumerate() {
-        let name = column.get_name().unwrap();
-        let ctype = column.get_type().unwrap();
+        let name = column.get_name()?;
+        let ctype = column.get_type()?;
         let mut sql_col = format!("{} {}", name, ctype);
 
         let is_nullable = column.get_is_nullable();
@@ -94,24 +88,25 @@ pub fn schema_to_table_create_sql(
     if !sql_pks.is_empty() {
         sql_cols = format!("{},PRIMARY KEY ({})", sql_cols, sql_pks);
     }
-    let sql = format!("CREATE TABLE {}.{} ({})", ns, rel, sql_cols);
-    Ok(sql)
+    Ok(format!(
+        "CREATE TABLE IF NOT EXISTS {}.{} ({})",
+        ns, rel, sql_cols
+    ))
 }
 
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
 /// Note: Instead of a SQL transaction, we could use a bulk insert. However, can
 /// we be sure that the columns will always match across records in a `tx::Reader`?
-/// fixme: error handling
 pub fn tx_to_table_inserts_sql(
     ns: String,
     rel: String,
     txn: tx::Reader,
-) -> anyhow::Result<Vec<String>> {
-    let records = txn.get_records().unwrap();
+) -> capnp::Result<Vec<String>> {
+    let records = txn.get_records()?;
 
     let mut inserts: Vec<String> = Vec::new();
     for record in records {
-        let action = record.get_action().unwrap();
+        let action = record.get_action()?;
         match action {
             "I" => {}
             _ => {
@@ -122,11 +117,11 @@ pub fn tx_to_table_inserts_sql(
 
         let mut cols = String::new();
         let mut vals = String::new();
-        let columns = record.get_columns().unwrap();
+        let columns = record.get_columns()?;
         for (i, column) in columns.iter().enumerate() {
-            let name = column.get_name().unwrap();
-            let value: serde_json::Value =
-                serde_json::from_slice(column.get_value().unwrap()).unwrap();
+            let name = column.get_name()?;
+            let value: serde_json::Value = serde_json::from_slice(column.get_value()?)
+                .map_err(|e| capnp::Error::failed(e.to_string()))?;
             if i == 0 {
                 cols = name.into();
                 vals = value.to_string();

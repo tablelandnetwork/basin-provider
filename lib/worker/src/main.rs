@@ -42,8 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .quiet(args.quiet)
         .verbosity(args.verbosity as usize)
         .timestamp(Timestamp::Millisecond)
-        .init()
-        .unwrap();
+        .init()?;
 
     let warp_server = warp::serve(
         warp::path("health")

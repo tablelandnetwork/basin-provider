@@ -10,7 +10,6 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.75"
 array-bytes = "6.1.0"
 basin_protocol = { path = "../protocol" }
 capnp = "0.17.2"

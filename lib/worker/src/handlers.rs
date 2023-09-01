@@ -16,7 +16,6 @@ pub struct Publications {
 
 impl publications::Server for Publications {
     /// Receives new namespace requests.
-    /// fixme: error handling
     /// fixme: validate owner byte length is address (42)
     fn create(
         &mut self,
@@ -24,12 +23,12 @@ impl publications::Server for Publications {
         _: publications::CreateResults,
     ) -> Promise<(), capnp::Error> {
         let args = pry!(params.get());
-        let ns = args.get_ns().unwrap().to_string();
-        let rel = args.get_rel().unwrap().to_string();
-        let schema = args.get_schema().unwrap();
-        let owner = args.get_owner().unwrap();
+        let ns = pry!(args.get_ns()).to_string();
+        let rel = pry!(args.get_rel()).to_string();
+        let schema = pry!(args.get_schema());
+        let owner = pry!(args.get_owner());
         let owner_addr = Address::from_slice(owner);
-        let table_stmt = schema_to_table_create_sql(ns.clone(), rel.clone(), schema).unwrap();
+        let table_stmt = pry!(schema_to_table_create_sql(ns.clone(), rel.clone(), schema));
 
         debug!(
             "publication create {}.{} for {}: {}",
@@ -41,26 +40,25 @@ impl publications::Server for Publications {
 
         let p = self.pool.clone();
         Promise::from_future(async move {
-            namespace_create(&p, ns, owner_addr).await.unwrap();
-            pub_table_create(&p, &table_stmt).await.unwrap();
+            namespace_create(&p, ns, owner_addr).await?;
+            pub_table_create(&p, &table_stmt).await?;
             Ok(())
         })
     }
 
     /// Receives publication data.
-    /// fixme: error handling
     fn push(
         &mut self,
         params: publications::PushParams,
         _: publications::PushResults,
     ) -> Promise<(), capnp::Error> {
         let args = pry!(params.get());
-        let ns = args.get_ns().unwrap().to_string();
-        let rel = args.get_rel().unwrap().to_string();
-        let tx = args.get_tx().unwrap();
-        let sig = args.get_sig().unwrap();
-        let owner_addr = recover_addr(tx, sig);
-        let insert_stmt = tx_to_table_inserts_sql(ns.clone(), rel.clone(), tx).unwrap();
+        let ns = pry!(args.get_ns()).to_string();
+        let rel = pry!(args.get_rel()).to_string();
+        let tx = pry!(args.get_tx());
+        let sig = pry!(args.get_sig());
+        let owner_addr = pry!(recover_addr(tx, sig));
+        let insert_stmt = pry!(tx_to_table_inserts_sql(ns.clone(), rel.clone(), tx));
 
         debug!(
             "publication push {}.{} for {}: {:?}",
@@ -72,9 +70,9 @@ impl publications::Server for Publications {
 
         let p = self.pool.clone();
         Promise::from_future(async move {
-            let is_owner = is_namespace_owner(&p, ns, owner_addr).await.unwrap();
+            let is_owner = is_namespace_owner(&p, ns, owner_addr).await?;
             if is_owner {
-                pub_table_insert(&p, insert_stmt).await.unwrap();
+                pub_table_insert(&p, insert_stmt).await?;
                 Ok(())
             } else {
                 Err(capnp::Error::failed("Unauthorized".into()))
@@ -83,22 +81,33 @@ impl publications::Server for Publications {
     }
 }
 
-/// Returns the canonical bytes of tx::Reader
-fn canonicalize_tx(reader: tx::Reader) -> Vec<u8> {
-    let size = reader.total_size().unwrap().word_count + 1;
-    let mut message =
-        message::Builder::new(message::HeapAllocator::new().first_segment_words(size as u32));
-    message.set_root_canonical(reader).unwrap();
-    let output_segments = message.get_segments_for_output();
-    debug_assert_eq!(1, output_segments.len());
-    let output = output_segments[0];
-    debug_assert!((output.len() / BYTES_PER_WORD) as u64 <= size);
-    output.to_vec()
+/// Recovers address from tx:Reader
+fn recover_addr(tx: tx::Reader, sig: data::Reader) -> capnp::Result<Address> {
+    let payload = canonicalize_tx(tx)?;
+    let hash = keccak256(payload.as_slice());
+    let addr = recover(hash.as_slice(), &sig[..64], sig[64] as i32)?;
+    Ok(addr)
 }
 
-/// Recovers address from tx:Reader
-fn recover_addr(tx: tx::Reader, sig: data::Reader) -> Address {
-    let payload = canonicalize_tx(tx);
-    let hash = keccak256(payload.as_slice());
-    recover(hash.as_slice(), &sig[..64], sig[64] as i32).unwrap()
+/// Returns the canonical bytes of tx::Reader
+fn canonicalize_tx(reader: tx::Reader) -> capnp::Result<Vec<u8>> {
+    let size = reader.total_size()?.word_count + 1;
+    let mut message =
+        message::Builder::new(message::HeapAllocator::new().first_segment_words(size as u32));
+    message.set_root_canonical(reader)?;
+    let output_segments = message.get_segments_for_output();
+    if output_segments.len() != 1 {
+        return Err(capnp::Error::failed(format!(
+            "canonical tx has {} segments; expected 1",
+            output_segments.len()
+        )));
+    }
+    let output = output_segments[0];
+    if (output.len() / BYTES_PER_WORD) as u64 > size {
+        return Err(capnp::Error::failed(format!(
+            "canonical tx size must be less than {}",
+            size
+        )));
+    }
+    Ok(output.to_vec())
 }

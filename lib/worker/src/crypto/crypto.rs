@@ -20,6 +20,12 @@ pub enum RecoveryError {
     InvalidSignature,
 }
 
+impl From<RecoveryError> for capnp::Error {
+    fn from(err: RecoveryError) -> capnp::Error {
+        capnp::Error::failed(err.to_string())
+    }
+}
+
 /// Ethereum-like address (right-most 160 bits of a Keccak hash of an ECDSA public key)
 pub type Address = H160;
 
