@@ -1,3 +1,4 @@
 ignore = [
     "lib/protocol/src",
+    "lib/evm/src/evm.rs",
 ]

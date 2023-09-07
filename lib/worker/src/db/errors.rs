@@ -6,12 +6,12 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("SQL error: {0}")]
-    SQL(sqlx::Error),
+    Sql(sqlx::Error),
 }
 
 impl From<sqlx::Error> for Error {
     fn from(err: sqlx::Error) -> Self {
-        Self::SQL(err)
+        Self::Sql(err)
     }
 }
 

@@ -6,12 +6,12 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("EVM error: {0}")]
-    EVM(String),
+    Evm(String),
 }
 
 impl From<String> for Error {
     fn from(err: String) -> Self {
-        Self::EVM(err)
+        Self::Evm(err)
     }
 }
 
