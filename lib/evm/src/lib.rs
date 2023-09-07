@@ -1,4 +1,5 @@
 mod errors;
+#[allow(clippy::all)]
 mod evm;
 pub mod testing;
 

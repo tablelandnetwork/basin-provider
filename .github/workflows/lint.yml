@@ -26,6 +26,11 @@ jobs:
           override: true
           components: clippy
 
+      - name: Install Cap'n Proto
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y capnproto libcapnp-dev
+
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
