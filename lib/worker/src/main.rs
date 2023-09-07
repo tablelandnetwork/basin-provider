@@ -3,6 +3,7 @@ mod db;
 mod handlers;
 mod helpers;
 
+use basin_evm::{testing::MockClient, EVMClient};
 use basin_protocol::publications;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use clap::Parser;
@@ -59,18 +60,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     listen(
         args.bind_address,
         PgPool::connect(&args.database_url).await?,
+        MockClient::new().await?,
     )
     .await
 }
 
 /// Listens for RPC messages from Basin clients
-pub async fn listen(addr: SocketAddr, pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn listen<E: EVMClient>(
+    addr: SocketAddr,
+    pg_pool: PgPool,
+    evm_client: E,
+) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let listener = tokio::net::TcpListener::bind(&addr).await?;
-            let publications_client: publications::Client =
-                capnp_rpc::new_client(handlers::Publications { pool });
+            let pubs_handler = handlers::Publications::new(pg_pool, evm_client);
+            let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
 
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
             info!("Basin RPC service started");
             loop {
                 let (stream, _) = listener.accept().await?;
@@ -86,7 +92,7 @@ pub async fn listen(addr: SocketAddr, pool: PgPool) -> Result<(), Box<dyn std::e
                 );
 
                 let rpc_system =
-                    RpcSystem::new(Box::new(network), Some(publications_client.clone().client));
+                    RpcSystem::new(Box::new(network), Some(pubs_client.clone().client));
 
                 tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
             }

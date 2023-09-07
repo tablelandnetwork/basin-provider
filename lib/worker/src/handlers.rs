@@ -1,6 +1,7 @@
 use crate::crypto::{keccak256, recover, Address};
 use crate::db::{is_namespace_owner, namespace_create, pub_table_create, pub_table_insert};
 use crate::helpers::{schema_to_table_create_sql, tx_to_table_inserts_sql};
+use basin_evm::EVMClient;
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
 use capnp_rpc::pry;
@@ -8,11 +9,21 @@ use log::debug;
 use sqlx::postgres::PgPool;
 
 /// RPC service wrapper for publications.
-pub struct Publications {
-    pub(crate) pool: PgPool,
+pub struct Publications<E: EVMClient + 'static> {
+    pub(crate) pg_pool: PgPool,
+    pub(crate) evm_client: E,
 }
 
-impl publications::Server for Publications {
+impl<E: EVMClient + 'static> Publications<E> {
+    pub fn new(pg_pool: PgPool, evm_client: E) -> Self {
+        Self {
+            pg_pool,
+            evm_client,
+        }
+    }
+}
+
+impl<E: EVMClient + 'static> publications::Server for Publications<E> {
     /// Receives new namespace requests.
     fn create(
         &mut self,
@@ -25,17 +36,19 @@ impl publications::Server for Publications {
         let schema = pry!(args.get_schema());
         let owner = Address::from_slice(pry!(args.get_owner()));
         let table_stmt = pry!(schema_to_table_create_sql(ns.clone(), rel.clone(), schema));
+        let name = format!("{}.{}", ns, rel);
 
         debug!(
-            "publication create {}.{} for {}: {}",
-            ns.clone(),
-            rel,
+            "publication create {} for {}: {}",
+            name,
             owner.to_string(),
             table_stmt
         );
 
-        let p = self.pool.clone();
+        let p = self.pg_pool.clone();
+        let e = self.evm_client.clone();
         Promise::from_future(async move {
+            e.add_pub(owner, name.as_str()).await?;
             namespace_create(&p, ns, owner).await?;
             pub_table_create(&p, &table_stmt).await?;
             Ok(())
@@ -64,7 +77,7 @@ impl publications::Server for Publications {
             insert_stmt
         );
 
-        let p = self.pool.clone();
+        let p = self.pg_pool.clone();
         Promise::from_future(async move {
             let is_owner = is_namespace_owner(&p, ns, owner).await?;
             if is_owner {

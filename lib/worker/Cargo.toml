@@ -10,12 +10,15 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
+anvil = "0.0.1"
 array-bytes = "6.1.0"
+basin_evm = { path = "../evm" }
 basin_protocol = { path = "../protocol" }
 capnp = "0.17.2"
 capnp-rpc = "0.17.0"
 clap = { version = "4.4.0", features = ["derive"] }
 dotenvy = "0.15.7"
+ethers = "2.0.8"
 futures = "0.3.28"
 log = "0.4.1"
 once_cell = "1.18.0"
