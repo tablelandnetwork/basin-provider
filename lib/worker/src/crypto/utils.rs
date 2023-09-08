@@ -1,5 +1,5 @@
+use ethers::types::Address;
 use once_cell::sync::Lazy;
-use primitive_types::H160;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     All, Message, PublicKey, Secp256k1,
@@ -25,9 +25,6 @@ impl From<RecoveryError> for capnp::Error {
         capnp::Error::failed(err.to_string())
     }
 }
-
-/// Ethereum-like address (right-most 160 bits of a Keccak hash of an ECDSA public key)
-pub type Address = H160;
 
 /// Recover a sender, given message and the signature.
 pub fn recover(

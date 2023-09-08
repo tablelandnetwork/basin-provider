@@ -1,10 +1,11 @@
-use crate::crypto::{keccak256, recover, Address};
+use crate::crypto::{keccak256, recover};
 use crate::db::{is_namespace_owner, namespace_create, pub_table_create, pub_table_insert};
 use crate::helpers::{schema_to_table_create_sql, tx_to_table_inserts_sql};
 use basin_evm::EVMClient;
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
 use capnp_rpc::pry;
+use ethers::types::Address;
 use log::debug;
 use sqlx::postgres::PgPool;
 

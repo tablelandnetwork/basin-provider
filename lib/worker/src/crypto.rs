@@ -1,3 +1,3 @@
 mod utils;
 
-pub use utils::{keccak256, recover, Address};
+pub use utils::{keccak256, recover};

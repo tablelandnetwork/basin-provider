@@ -17,19 +17,16 @@ pub struct BasinClient {
 
 impl BasinClient {
     pub async fn new(
+        wallet: LocalWallet,
         contract_address: Address,
         provider_url: &str,
-        chain_id: Chain,
-        wallet: LocalWallet,
-        reconnects: usize,
+        provider_reconnects: usize,
+        chain: Chain,
     ) -> Result<Self> {
-        let provider = Provider::<Ws>::connect_with_reconnects(provider_url, reconnects)
+        let provider = Provider::<Ws>::connect_with_reconnects(provider_url, provider_reconnects)
             .await
             .map_err(|e| return Error::Evm(e.to_string()))?;
-        let client = Arc::new(SignerMiddleware::new(
-            provider,
-            wallet.with_chain_id(chain_id),
-        ));
+        let client = Arc::new(SignerMiddleware::new(provider, wallet.with_chain_id(chain)));
 
         Ok(Self {
             contract: Contract::new(contract_address, client),
