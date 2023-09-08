@@ -1,5 +1,5 @@
 use crate::errors::Result;
-use crate::evm::BasinStorage as Contract;
+use crate::Contract;
 use crate::EVMClient;
 use async_trait::async_trait;
 use ethers::{
@@ -16,12 +16,11 @@ use tiny_keccak::{Hasher, Keccak};
 #[derive(Clone)]
 pub struct MockClient {
     _anvil: Arc<AnvilInstance>, // unused, but ref'd here to keep the task from dropping
-    storage: Contract<SignerMiddleware<Provider<Http>, LocalWallet>>,
+    contract: Contract<SignerMiddleware<Provider<Http>, LocalWallet>>,
 }
 
-#[async_trait]
-impl EVMClient for MockClient {
-    async fn new() -> Result<Self> {
+impl MockClient {
+    pub async fn new() -> Result<Self> {
         let anvil = match std::env::var("FOUNDRY_BIN") {
             Ok(p) => Anvil::at(format!("{}/anvil", p)).spawn(),
             Err(_) => Anvil::new().spawn(), // try to load from PATH
@@ -36,9 +35,9 @@ impl EVMClient for MockClient {
             wallet.with_chain_id(anvil.chain_id()),
         ));
 
-        let storage = Contract::deploy(client, ()).unwrap().send().await.unwrap();
+        let contract = Contract::deploy(client, ()).unwrap().send().await.unwrap();
 
-        storage
+        contract
             .grant_role(keccak256("PUB_ADMIN_ROLE".as_bytes()), wallet_address)
             .send()
             .await
@@ -46,12 +45,19 @@ impl EVMClient for MockClient {
 
         Ok(Self {
             _anvil: Arc::new(anvil),
-            storage,
+            contract,
         })
+    }
+}
+
+#[async_trait]
+impl EVMClient for MockClient {
+    fn address(&self) -> Address {
+        self.contract.address()
     }
 
     async fn add_pub(&self, owner: Address, name: &str) -> Result<()> {
-        self.storage
+        self.contract
             .create_pub(owner, name.into())
             .send()
             .await
@@ -73,8 +79,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn new_client_works() {
-        MockClient::new().await.unwrap();
+    async fn new_works() {
+        let client = MockClient::new().await.unwrap();
+        assert!(!client.address().is_zero());
     }
 
     #[tokio::test]
@@ -84,7 +91,7 @@ mod tests {
         let name = "foo.bar";
         client.add_pub(owner, name).await.unwrap();
 
-        let owner_pubs: Vec<String> = client.storage.pubs_of_owner(owner).call().await.unwrap();
+        let owner_pubs: Vec<String> = client.contract.pubs_of_owner(owner).call().await.unwrap();
         assert_eq!(owner_pubs[0], name);
     }
 }

@@ -3,6 +3,6 @@ fn main() {
         .unwrap()
         .generate()
         .unwrap()
-        .write_to_file("./src/evm.rs")
+        .write_to_file("./src/contract.rs")
         .unwrap();
 }

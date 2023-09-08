@@ -1,4 +1,4 @@
 ignore = [
     "lib/protocol/src",
-    "lib/evm/src/evm.rs",
+    "lib/evm/src/contract.rs",
 ]
