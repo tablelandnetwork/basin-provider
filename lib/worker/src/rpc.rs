@@ -5,9 +5,13 @@ use basin_evm::EVMClient;
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
 use capnp_rpc::pry;
+use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::types::Address;
+use futures::{AsyncReadExt, FutureExt};
 use log::debug;
+use log::info;
 use sqlx::postgres::PgPool;
+use std::net::SocketAddr;
 
 /// RPC service wrapper for publications.
 pub struct Publications<E: EVMClient + 'static> {
@@ -120,4 +124,39 @@ fn canonicalize_tx(reader: tx::Reader) -> capnp::Result<Vec<u8>> {
         )));
     }
     Ok(output.to_vec())
+}
+
+/// Listens for RPC messages from Basin clients
+pub async fn listen<E: EVMClient>(
+    addr: SocketAddr,
+    pg_pool: PgPool,
+    evm_client: E,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tokio::task::LocalSet::new()
+        .run_until(async move {
+            let pubs_handler = Publications::new(pg_pool, evm_client);
+            let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
+
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
+            info!("Basin RPC API started");
+            loop {
+                let (stream, _) = listener.accept().await?;
+                stream.set_nodelay(true)?;
+                let (reader, writer) =
+                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+
+                let network = twoparty::VatNetwork::new(
+                    reader,
+                    writer,
+                    rpc_twoparty_capnp::Side::Server,
+                    Default::default(),
+                );
+
+                let rpc_system =
+                    RpcSystem::new(Box::new(network), Some(pubs_client.clone().client));
+
+                tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
+            }
+        })
+        .await
 }

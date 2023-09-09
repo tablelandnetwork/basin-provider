@@ -25,7 +25,7 @@ impl BasinClient {
     ) -> Result<Self> {
         let provider = Provider::<Ws>::connect_with_reconnects(provider_url, provider_reconnects)
             .await
-            .map_err(|e| return Error::Evm(e.to_string()))?;
+            .map_err(|e| Error::Evm(e.to_string()))?;
         let client = Arc::new(SignerMiddleware::new(provider, wallet.with_chain_id(chain)));
 
         Ok(Self {
@@ -45,7 +45,7 @@ impl EVMClient for BasinClient {
             .create_pub(owner, name.into())
             .send()
             .await
-            .map_err(|e| return Error::Evm(e.to_string()))?;
+            .map_err(|e| Error::Evm(e.to_string()))?;
         Ok(())
     }
 }

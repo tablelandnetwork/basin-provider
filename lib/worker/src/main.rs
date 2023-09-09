@@ -1,22 +1,19 @@
 mod crypto;
 mod db;
-mod handlers;
 mod helpers;
+mod http;
+mod rpc;
 
-use basin_evm::{testing::MockClient, BasinClient, EVMClient};
-use basin_protocol::publications;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use basin_evm::{testing::MockClient, BasinClient};
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueEnum};
 use ethers::signers::LocalWallet;
 use ethers::types::{Address, Chain};
-use futures::{AsyncReadExt, FutureExt};
 use log::info;
-use serde::Serialize;
 use sqlx::postgres::PgPool;
-use std::{convert::Infallible, net::SocketAddr};
+use std::net::SocketAddr;
 use stderrlog::Timestamp;
-use warp::{http::StatusCode, Filter, Rejection, Reply};
+use warp::Filter;
 
 /// Command line args
 #[derive(Parser, Debug)]
@@ -50,7 +47,7 @@ struct Cli {
     #[arg(long, env)]
     database_url: String,
 
-    /// Host and port to bind the Records API to
+    /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     bind_address: SocketAddr,
 
@@ -89,7 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let warp_server = warp::serve(
         warp::path("health")
             .map(warp::reply)
-            .recover(handle_warp_rejection),
+            .recover(http::handle_warp_rejection),
     )
     .run(args.bind_health_address);
     tokio::spawn(async {
@@ -99,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
     match args.evm_type {
-        EvmType::Mem => listen(args.bind_address, pg_pool, MockClient::new().await?).await,
+        EvmType::Mem => rpc::listen(args.bind_address, pg_pool, MockClient::new().await?).await,
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -169,67 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            listen(args.bind_address, pg_pool, evm_client).await
+            rpc::listen(args.bind_address, pg_pool, evm_client).await
         }
     }
-}
-
-/// Listens for RPC messages from Basin clients
-pub async fn listen<E: EVMClient>(
-    addr: SocketAddr,
-    pg_pool: PgPool,
-    evm_client: E,
-) -> Result<(), Box<dyn std::error::Error>> {
-    tokio::task::LocalSet::new()
-        .run_until(async move {
-            let pubs_handler = handlers::Publications::new(pg_pool, evm_client);
-            let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
-
-            let listener = tokio::net::TcpListener::bind(&addr).await?;
-            info!("Basin Records API started");
-            loop {
-                let (stream, _) = listener.accept().await?;
-                stream.set_nodelay(true)?;
-                let (reader, writer) =
-                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
-
-                let network = twoparty::VatNetwork::new(
-                    reader,
-                    writer,
-                    rpc_twoparty_capnp::Side::Server,
-                    Default::default(),
-                );
-
-                let rpc_system =
-                    RpcSystem::new(Box::new(network), Some(pubs_client.clone().client));
-
-                tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
-            }
-        })
-        .await
-}
-
-/// Error message used by HTTP API
-#[derive(Serialize)]
-struct ErrorMessage {
-    code: u16,
-    message: String,
-}
-
-// HTTP API rejection handler
-async fn handle_warp_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-    let (code, message) = if err.is_not_found() {
-        (StatusCode::NOT_FOUND, "Not Found".to_string())
-    } else {
-        eprintln!("unhandled error: {:?}", err);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Internal Server Error".to_string(),
-        )
-    };
-    let json = warp::reply::json(&ErrorMessage {
-        code: code.as_u16(),
-        message,
-    });
-    Ok(warp::reply::with_status(json, code))
 }
