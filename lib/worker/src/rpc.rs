@@ -1,6 +1,8 @@
 use crate::crypto::{keccak256, recover};
 use crate::db::{is_namespace_owner, namespace_create, pub_table_create, pub_table_insert};
-use crate::helpers::{schema_to_table_create_sql, tx_to_table_inserts_sql};
+use crate::helpers::{
+    scheduled_changefeed_sql, schema_to_table_create_sql, tx_to_table_inserts_sql,
+};
 use basin_evm::EVMClient;
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
@@ -15,15 +17,17 @@ use std::net::SocketAddr;
 
 /// RPC service wrapper for publications.
 pub struct Publications<E: EVMClient + 'static> {
-    pub(crate) pg_pool: PgPool,
     pub(crate) evm_client: E,
+    pub(crate) pg_pool: PgPool,
+    pub(crate) cf_sink: String,
 }
 
 impl<E: EVMClient + 'static> Publications<E> {
-    pub fn new(pg_pool: PgPool, evm_client: E) -> Self {
+    pub fn new(evm_client: E, pg_pool: PgPool, cf_sink: String) -> Self {
         Self {
-            pg_pool,
             evm_client,
+            pg_pool,
+            cf_sink,
         }
     }
 }
@@ -40,14 +44,14 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let rel = pry!(args.get_rel()).to_string();
         let schema = pry!(args.get_schema());
         let owner = Address::from_slice(pry!(args.get_owner()));
-        let table_stmt = pry!(schema_to_table_create_sql(ns.clone(), rel.clone(), schema));
-        let name = format!("{}.{}", ns, rel);
+        let name = format!("{ns}.{rel}");
+        let table_stmt = pry!(schema_to_table_create_sql(name.clone(), schema));
+        let cf_sink = self.cf_sink.clone();
+        let cf_stmt = pry!(scheduled_changefeed_sql(name.clone(), cf_sink));
 
         debug!(
-            "publication create {} for {}: {}",
-            name,
+            "publication create {name} for {}: {table_stmt}",
             owner.to_string(),
-            table_stmt
         );
 
         let p = self.pg_pool.clone();
@@ -55,7 +59,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
             namespace_create(&p, ns, owner).await?;
-            pub_table_create(&p, &table_stmt).await?;
+            pub_table_create(&p, &table_stmt, &cf_stmt).await?;
             Ok(())
         })
     }
@@ -72,12 +76,11 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let tx = pry!(args.get_tx());
         let sig = pry!(args.get_sig());
         let owner = pry!(recover_addr(tx, sig));
-        let insert_stmt = pry!(tx_to_table_inserts_sql(ns.clone(), rel.clone(), tx));
+        let name = format!("{ns}.{rel}");
+        let insert_stmt = pry!(tx_to_table_inserts_sql(name.clone(), tx));
 
         debug!(
-            "publication push {}.{} for {}: {:?}",
-            ns.clone(),
-            rel,
+            "publication push {name} for {}: {:?}",
             owner.to_string(),
             insert_stmt
         );
@@ -119,8 +122,7 @@ fn canonicalize_tx(reader: tx::Reader) -> capnp::Result<Vec<u8>> {
     let output = output_segments[0];
     if (output.len() / BYTES_PER_WORD) as u64 > size {
         return Err(capnp::Error::failed(format!(
-            "canonical tx size must be less than {}",
-            size
+            "canonical tx size must be less than {size}"
         )));
     }
     Ok(output.to_vec())
@@ -129,12 +131,13 @@ fn canonicalize_tx(reader: tx::Reader) -> capnp::Result<Vec<u8>> {
 /// Listens for RPC messages from Basin clients
 pub async fn listen<E: EVMClient>(
     addr: SocketAddr,
-    pg_pool: PgPool,
     evm_client: E,
+    pg_pool: PgPool,
+    cf_sink: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let pubs_handler = Publications::new(pg_pool, evm_client);
+            let pubs_handler = Publications::new(evm_client, pg_pool, cf_sink);
             let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
 
             let listener = tokio::net::TcpListener::bind(&addr).await?;

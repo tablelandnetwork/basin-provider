@@ -2,54 +2,46 @@ use basin_protocol::{tableschema, tx};
 
 /// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.
 pub fn schema_to_table_create_sql(
-    ns: String,
-    rel: String,
+    pub_name: String,
     schema: tableschema::Reader,
 ) -> capnp::Result<String> {
     let columns = schema.get_columns()?;
-    let mut sql_cols = String::new();
-    let mut sql_pks = String::new();
+    let mut cols = String::new();
+    let mut pks = String::new();
 
     for (i, column) in columns.iter().enumerate() {
-        let name = column.get_name()?;
+        let cname = column.get_name()?;
         let ctype = column.get_type()?;
-        let mut sql_col = format!("{} {}", name, ctype);
+        let mut col = format!("{cname} {ctype}");
 
         let is_nullable = column.get_is_nullable();
         if is_nullable {
-            sql_col = format!("{} {}", sql_col, "NOT NULL");
+            col = format!("{col} NOT NULL");
         }
         let is_pk = column.get_is_part_of_primary_key();
 
         if i == 0 {
-            sql_cols = sql_col;
+            cols = col;
             if is_pk {
-                sql_pks = name.into();
+                pks = cname.into();
             }
         } else {
-            sql_cols = format!("{},{}", sql_cols, sql_col);
+            cols = format!("{cols},{col}");
             if is_pk {
-                sql_pks = format!("{},{}", sql_pks, name);
+                pks = format!("{pks},{cname}");
             }
         }
     }
-    if !sql_pks.is_empty() {
-        sql_cols = format!("{},PRIMARY KEY ({})", sql_cols, sql_pks);
+    if !pks.is_empty() {
+        cols = format!("{cols},PRIMARY KEY ({pks})");
     }
-    Ok(format!(
-        "CREATE TABLE IF NOT EXISTS {}.{} ({})",
-        ns, rel, sql_cols
-    ))
+    Ok(format!("CREATE TABLE IF NOT EXISTS {pub_name} ({cols})",))
 }
 
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
 /// Note: Instead of a SQL transaction, we could use a bulk insert. However, can
 /// we be sure that the columns will always match across records in a `tx::Reader`?
-pub fn tx_to_table_inserts_sql(
-    ns: String,
-    rel: String,
-    txn: tx::Reader,
-) -> capnp::Result<Vec<String>> {
+pub fn tx_to_table_inserts_sql(pub_name: String, txn: tx::Reader) -> capnp::Result<Vec<String>> {
     let records = txn.get_records()?;
 
     let mut inserts: Vec<String> = Vec::new();
@@ -67,20 +59,26 @@ pub fn tx_to_table_inserts_sql(
         let mut vals = String::new();
         let columns = record.get_columns()?;
         for (i, column) in columns.iter().enumerate() {
-            let name = column.get_name()?;
+            let cname = column.get_name()?;
             let value: serde_json::Value = serde_json::from_slice(column.get_value()?)
                 .map_err(|e| capnp::Error::failed(e.to_string()))?;
             if i == 0 {
-                cols = name.into();
+                cols = cname.into();
                 vals = value.to_string();
             } else {
-                cols = format!("{},{}", cols, name);
-                vals = format!("{},{}", vals, value);
+                cols = format!("{cols},{cname}");
+                vals = format!("{vals},{value}");
             }
         }
-        inserts.push(
-            format!("INSERT INTO {}.{} ({}) VALUES({})", ns, rel, cols, vals).replace('\"', "'"),
-        );
+        inserts.push(format!("INSERT INTO {pub_name} ({cols}) VALUES({vals})").replace('\"', "'"));
     }
     Ok(inserts)
+}
+
+/// Returns a SQL scheduled changefeed create statement.
+pub fn scheduled_changefeed_sql(pub_name: String, cf_sink: String) -> capnp::Result<String> {
+    let schedule = format!("{}_schedule", pub_name.replace(".", "_"));
+    Ok(format!(
+        "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH format=parquet RECURRING '0 0 * * *' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
+    ))
 }

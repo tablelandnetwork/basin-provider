@@ -47,6 +47,10 @@ struct Cli {
     #[arg(long, env)]
     database_url: String,
 
+    /// CockroachDB changefeed sink
+    #[arg(long, env)]
+    changefeed_sink: String,
+
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     bind_address: SocketAddr,
@@ -96,7 +100,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
     match args.evm_type {
-        EvmType::Mem => rpc::listen(args.bind_address, pg_pool, MockClient::new().await?).await,
+        EvmType::Mem => {
+            rpc::listen(
+                args.bind_address,
+                MockClient::new().await?,
+                pg_pool,
+                args.changefeed_sink,
+            )
+            .await
+        }
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -166,7 +178,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(args.bind_address, pg_pool, evm_client).await
+            rpc::listen(args.bind_address, evm_client, pg_pool, args.changefeed_sink).await
         }
     }
 }

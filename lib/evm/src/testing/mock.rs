@@ -22,7 +22,7 @@ pub struct MockClient {
 impl MockClient {
     pub async fn new() -> Result<Self> {
         let anvil = match std::env::var("FOUNDRY_BIN") {
-            Ok(p) => Anvil::at(format!("{}/anvil", p)).spawn(),
+            Ok(p) => Anvil::at(format!("{p}/anvil")).spawn(),
             Err(_) => Anvil::new().spawn(), // try to load from PATH
         };
         let provider = Provider::<Http>::try_from(anvil.endpoint())
