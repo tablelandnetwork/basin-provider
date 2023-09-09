@@ -1,8 +1,8 @@
 mod crypto;
 mod db;
-mod helpers;
 mod http;
 mod rpc;
+mod sql;
 
 use basin_evm::{testing::MockClient, BasinClient};
 use clap::error::ErrorKind;

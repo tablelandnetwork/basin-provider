@@ -1,8 +1,3 @@
-use crate::crypto::{keccak256, recover};
-use crate::db::{is_namespace_owner, namespace_create, pub_table_create, pub_table_insert};
-use crate::helpers::{
-    scheduled_changefeed_sql, schema_to_table_create_sql, tx_to_table_inserts_sql,
-};
 use basin_evm::EVMClient;
 use basin_protocol::{publications, tx};
 use capnp::{capability::Promise, data, message, private::units::BYTES_PER_WORD};
@@ -17,9 +12,9 @@ use std::net::SocketAddr;
 
 /// RPC service wrapper for publications.
 pub struct Publications<E: EVMClient + 'static> {
-    pub(crate) evm_client: E,
-    pub(crate) pg_pool: PgPool,
-    pub(crate) cf_sink: String,
+    evm_client: E,
+    pg_pool: PgPool,
+    cf_sink: String,
 }
 
 impl<E: EVMClient + 'static> Publications<E> {
@@ -45,9 +40,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let schema = pry!(args.get_schema());
         let owner = Address::from_slice(pry!(args.get_owner()));
         let name = format!("{ns}.{rel}");
-        let table_stmt = pry!(schema_to_table_create_sql(name.clone(), schema));
+        let table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
         let cf_sink = self.cf_sink.clone();
-        let cf_stmt = pry!(scheduled_changefeed_sql(name.clone(), cf_sink));
+        let cf_stmt = pry!(crate::sql::scheduled_changefeed_create(
+            name.clone(),
+            cf_sink
+        ));
 
         debug!(
             "publication create {name} for {}: {table_stmt}",
@@ -58,8 +56,8 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let e = self.evm_client.clone();
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
-            namespace_create(&p, ns, owner).await?;
-            pub_table_create(&p, &table_stmt, &cf_stmt).await?;
+            crate::db::namespace_create(&p, ns, owner).await?;
+            crate::db::pub_table_create(&p, &table_stmt, &cf_stmt).await?;
             Ok(())
         })
     }
@@ -77,7 +75,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let sig = pry!(args.get_sig());
         let owner = pry!(recover_addr(tx, sig));
         let name = format!("{ns}.{rel}");
-        let insert_stmt = pry!(tx_to_table_inserts_sql(name.clone(), tx));
+        let insert_stmt = pry!(crate::sql::tx_to_table_inserts(name.clone(), tx));
 
         debug!(
             "publication push {name} for {}: {:?}",
@@ -87,9 +85,9 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            let is_owner = is_namespace_owner(&p, ns, owner).await?;
+            let is_owner = crate::db::is_namespace_owner(&p, ns, owner).await?;
             if is_owner {
-                pub_table_insert(&p, insert_stmt).await?;
+                crate::db::pub_table_insert(&p, insert_stmt).await?;
                 Ok(())
             } else {
                 Err(capnp::Error::failed("Unauthorized".into()))
@@ -101,8 +99,8 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 /// Recovers address from tx:Reader
 fn recover_addr(tx: tx::Reader, sig: data::Reader) -> capnp::Result<Address> {
     let payload = canonicalize_tx(tx)?;
-    let hash = keccak256(payload.as_slice());
-    let addr = recover(hash.as_slice(), &sig[..64], sig[64] as i32)?;
+    let hash = crate::crypto::keccak256(payload.as_slice());
+    let addr = crate::crypto::recover(hash.as_slice(), &sig[..64], sig[64] as i32)?;
     Ok(addr)
 }
 

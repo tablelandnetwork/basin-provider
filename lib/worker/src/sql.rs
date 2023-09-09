@@ -1,7 +1,7 @@
 use basin_protocol::{tableschema, tx};
 
 /// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.
-pub fn schema_to_table_create_sql(
+pub fn schema_to_table_create(
     pub_name: String,
     schema: tableschema::Reader,
 ) -> capnp::Result<String> {
@@ -41,7 +41,7 @@ pub fn schema_to_table_create_sql(
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
 /// Note: Instead of a SQL transaction, we could use a bulk insert. However, can
 /// we be sure that the columns will always match across records in a `tx::Reader`?
-pub fn tx_to_table_inserts_sql(pub_name: String, txn: tx::Reader) -> capnp::Result<Vec<String>> {
+pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<Vec<String>> {
     let records = txn.get_records()?;
 
     let mut inserts: Vec<String> = Vec::new();
@@ -76,7 +76,7 @@ pub fn tx_to_table_inserts_sql(pub_name: String, txn: tx::Reader) -> capnp::Resu
 }
 
 /// Returns a SQL scheduled changefeed create statement.
-pub fn scheduled_changefeed_sql(pub_name: String, cf_sink: String) -> capnp::Result<String> {
+pub fn scheduled_changefeed_create(pub_name: String, cf_sink: String) -> capnp::Result<String> {
     let schedule = format!("{}_schedule", pub_name.replace(".", "_"));
     Ok(format!(
         "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH format=parquet RECURRING '0 0 * * *' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
