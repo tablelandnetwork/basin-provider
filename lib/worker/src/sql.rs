@@ -79,6 +79,6 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
 pub fn scheduled_changefeed_create(pub_name: String, cf_sink: String) -> capnp::Result<String> {
     let schedule = format!("{}_schedule", pub_name.replace(".", "_"));
     Ok(format!(
-        "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH format=parquet RECURRING '0 0 * * *' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
+        "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH full_table_name, format=parquet RECURRING '0 0 * * *' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
     ))
 }
