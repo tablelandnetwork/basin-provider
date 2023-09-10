@@ -17,10 +17,96 @@
 - [License](#license)
 
 # Background
+_To-do_
 
 # Usage
 
+```
+> basin_worker --help
+The Tableland Basin Provider.
+
+Usage: basin_worker [OPTIONS] --database-url <DATABASE_URL> --changefeed-sink <CHANGEFEED_SINK>
+
+Options:
+      --evm-type <EVM_TYPE>
+          EVM type (other EVM flags are ignored when this is 'mem')
+          
+          [env: EVM_TYPE=]
+          [default: remote]
+
+          Possible values:
+          - mem:    Use an in-memory ephemeral EVM w/ random wallet (a BasinStorage contract will be deployed)
+          - remote: Requires wallet private key, contract address, provider URL, and chain ID
+
+      --evm-wallet-pk <EVM_WALLET_PK>
+          Wallet private key (ECDSA, secp256k1) to use with the EVM (must have PUB_ADMIN_ROLE)
+          
+          [env: EVM_WALLET_PK=]
+
+      --evm-contract-address <EVM_CONTRACT_ADDRESS>
+          BasinStorage EVM contract address (ECDSA, secp256k1)
+          
+          [env: EVM_CONTRACT_ADDRESS=]
+
+      --evm-provider-url <EVM_PROVIDER_URL>
+          EVM provider URL
+          
+          [env: EVM_PROVIDER_URL=]
+          [default: ws://127.0.0.1:8545]
+
+      --evm-provider-reconnects <EVM_PROVIDER_RECONNECTS>
+          Number of times Basin will attempt to reconnect to the provider
+          
+          [env: EVM_PROVIDER_RECONNECTS=]
+          [default: 10]
+
+      --evm-chain-id <EVM_CHAIN_ID>
+          EVM chain ID
+          
+          [env: EVM_CHAIN_ID=]
+          [default: 31337]
+
+      --database-url <DATABASE_URL>
+          Postgres-style database URL
+          
+          [env: DATABASE_URL=]
+
+      --changefeed-sink <CHANGEFEED_SINK>
+          CockroachDB changefeed sink
+          
+          [env: CHANGEFEED_SINK=]
+
+      --bind-address <BIND_ADDRESS>
+          Host and port to bind the RPC API to
+          
+          [env: BIND_ADDRESS=]
+          [default: 127.0.0.1:3000]
+
+      --bind-health-address <BIND_HEALTH_ADDRESS>
+          Host and port to bind the Health API to
+          
+          [env: BIND_HEALTH_ADDRESS=]
+          [default: 127.0.0.1:3001]
+
+  -v, --verbosity...
+          Logging verbosity (repeat for more verbose logging)
+          
+          [env: VERBOSITY=]
+
+  -q, --quiet
+          Silence logging
+          
+          [env: QUIET=]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+```
+
 # Development
+_To-do_
 
 # Contributing
 

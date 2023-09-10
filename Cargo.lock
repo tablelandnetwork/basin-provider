@@ -1093,8 +1093,7 @@ dependencies = [
 [[package]]
 name = "ethers"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba3fd516c15a9a587135229466dbbfc85796de55c5660afbbb1b1c78517d85c"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "ethers-addressbook",
  "ethers-contract",
@@ -1109,8 +1108,7 @@ dependencies = [
 [[package]]
 name = "ethers-addressbook"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0245617f11b8178fa50b52e433e2c34ac69f39116b62c8be2437decf2edf1986"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "ethers-core",
  "once_cell",
@@ -1121,8 +1119,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02bb80fd2c22631a5eb8a02cbf373cc5fd86937fc966bb670b9a884580c8e71c"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "const-hex",
  "ethers-contract-abigen",
@@ -1140,8 +1137,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract-abigen"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22c54db0d393393e732a5b20273e4f8ab89f0cce501c84e75fab9c126799a6e6"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1164,8 +1160,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract-derive"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62ee4f216184a1304b707ed258f4f70aa40bf7e1522ab8963d127a8d516eaa1a"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1180,8 +1175,7 @@ dependencies = [
 [[package]]
 name = "ethers-core"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c29523f73c12753165781c6e5dc11c84d3e44c080a15f7c6cfbd70b514cb6f1"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "arrayvec",
  "bytes",
@@ -1210,8 +1204,7 @@ dependencies = [
 [[package]]
 name = "ethers-etherscan"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aab5af432b3fe5b7756b60df5c9ddeb85a13414575ad8a9acd707c24f0a77a5"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "ethers-core",
  "reqwest",
@@ -1225,8 +1218,7 @@ dependencies = [
 [[package]]
 name = "ethers-middleware"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "356151d5ded56d4918146366abc9dfc9df367cf0096492a7a5477b21b7693615"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1252,8 +1244,7 @@ dependencies = [
 [[package]]
 name = "ethers-providers"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00c84664b294e47fc2860d6db0db0246f79c4c724e552549631bb9505b834bee"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1290,8 +1281,7 @@ dependencies = [
 [[package]]
 name = "ethers-signers"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "170b299698702ef1f53d2275af7d6d97409cfa4f9398ee9ff518f6bc9102d0ad"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "async-trait",
  "coins-bip32",
@@ -1309,8 +1299,7 @@ dependencies = [
 [[package]]
 name = "ethers-solc"
 version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66559c8f774712df303c907d087275a52a2046b256791aaa566d5abc8ea66731"
+source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
 dependencies = [
  "cfg-if",
  "const-hex",
@@ -1982,6 +1971,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2053,7 +2051,7 @@ dependencies = [
  "diff",
  "ena",
  "is-terminal",
- "itertools",
+ "itertools 0.10.5",
  "lalrpop-util",
  "petgraph",
  "regex",
@@ -3444,11 +3442,11 @@ dependencies = [
 
 [[package]]
 name = "solang-parser"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c792fe9fae2a2f716846f214ca10d5a1e21133e0bf36cef34bcc4a852467b21"
+checksum = "7cb9fa2fa2fa6837be8a2495486ff92e3ffe68a99b6eeba288e139efdd842457"
 dependencies = [
- "itertools",
+ "itertools 0.11.0",
  "lalrpop",
  "lalrpop-util",
  "phf",
@@ -3487,7 +3485,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c12bc9199d1db8234678b7051747c07f517cdcf019262d1847b94ec8b1aee3e"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "nom",
  "unicode_categories",
 ]
