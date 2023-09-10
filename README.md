@@ -52,13 +52,7 @@ Options:
           EVM provider URL
           
           [env: EVM_PROVIDER_URL=]
-          [default: ws://127.0.0.1:8545]
-
-      --evm-provider-reconnects <EVM_PROVIDER_RECONNECTS>
-          Number of times Basin will attempt to reconnect to the provider
-          
-          [env: EVM_PROVIDER_RECONNECTS=]
-          [default: 10]
+          [default: http://127.0.0.1:8545]
 
       --evm-chain-id <EVM_CHAIN_ID>
           EVM chain ID

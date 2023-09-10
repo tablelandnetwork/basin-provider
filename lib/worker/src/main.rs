@@ -32,12 +32,8 @@ struct Cli {
     evm_contract_address: Option<String>,
 
     /// EVM provider URL
-    #[arg(long, env, default_value = "ws://127.0.0.1:8545")]
+    #[arg(long, env, default_value = "http://127.0.0.1:8545")]
     evm_provider_url: String,
-
-    /// Number of times Basin will attempt to reconnect to the provider
-    #[arg(long, env, default_value_t = 10)]
-    evm_provider_reconnects: usize,
 
     /// EVM chain ID
     #[arg(long, env, default_value_t = 31337)]
@@ -173,7 +169,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 wallet,
                 Address::from_slice(contract_address.as_slice()),
                 args.evm_provider_url.as_str(),
-                args.evm_provider_reconnects,
                 chain_id,
             )
             .await?;
