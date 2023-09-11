@@ -42,6 +42,9 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get install -y capnproto libcapnp-dev
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:

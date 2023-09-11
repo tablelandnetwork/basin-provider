@@ -1,5 +1,0 @@
-file-defaults:
-  dir: ./cockroach.log
-  sinks:
-    stderr:
-      filter: NONE

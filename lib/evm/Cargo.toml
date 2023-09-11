@@ -1,0 +1,22 @@
+[package]
+authors = { workspace = true }
+description = { workspace = true }
+edition = { workspace = true }
+name = "basin_evm"
+homepage = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[dependencies]
+async-trait = "0.1.65"
+capnp = "0.17.2"
+ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet", features = ["abigen", "rustls", "ws"] }
+serde = "1.0.183"
+thiserror = "1.0.47"
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tokio = { version = "1.32.0", features = ["full"] }
+
+[build-dependencies]
+ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet" }

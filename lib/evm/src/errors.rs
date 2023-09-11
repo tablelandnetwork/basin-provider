@@ -5,13 +5,13 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// Error for database operations.
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("SQL error: {0}")]
-    Sql(sqlx::Error),
+    #[error("EVM error: {0}")]
+    Evm(String),
 }
 
-impl From<sqlx::Error> for Error {
-    fn from(err: sqlx::Error) -> Self {
-        Self::Sql(err)
+impl From<String> for Error {
+    fn from(err: String) -> Self {
+        Self::Evm(err)
     }
 }
 
