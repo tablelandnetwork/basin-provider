@@ -18,7 +18,7 @@ capnp = "0.17.2"
 capnp-rpc = "0.17.0"
 clap = { version = "4.4.2", features = ["derive", "env"] }
 dotenvy = "0.15.7"
-ethers = "2.0.8"
+ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet", features = ["abigen", "rustls", "ws"] }
 futures = "0.3.28"
 hex = "0.4.3"
 log = "0.4.1"

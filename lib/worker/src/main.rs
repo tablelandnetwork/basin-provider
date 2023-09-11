@@ -1,8 +1,8 @@
 mod crypto;
 mod db;
-mod helpers;
 mod http;
 mod rpc;
+mod sql;
 
 use basin_evm::{testing::MockClient, BasinClient};
 use clap::error::ErrorKind;
@@ -32,12 +32,8 @@ struct Cli {
     evm_contract_address: Option<String>,
 
     /// EVM provider URL
-    #[arg(long, env, default_value = "ws://127.0.0.1:8545")]
+    #[arg(long, env, default_value = "http://127.0.0.1:8545")]
     evm_provider_url: String,
-
-    /// Number of times Basin will attempt to reconnect to the provider
-    #[arg(long, env, default_value_t = 10)]
-    evm_provider_reconnects: usize,
 
     /// EVM chain ID
     #[arg(long, env, default_value_t = 31337)]
@@ -46,6 +42,10 @@ struct Cli {
     /// Postgres-style database URL
     #[arg(long, env)]
     database_url: String,
+
+    /// CockroachDB changefeed sink
+    #[arg(long, env)]
+    changefeed_sink: String,
 
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
@@ -96,7 +96,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
     match args.evm_type {
-        EvmType::Mem => rpc::listen(args.bind_address, pg_pool, MockClient::new().await?).await,
+        EvmType::Mem => {
+            rpc::listen(
+                args.bind_address,
+                MockClient::new().await?,
+                pg_pool,
+                args.changefeed_sink,
+            )
+            .await
+        }
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -161,12 +169,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 wallet,
                 Address::from_slice(contract_address.as_slice()),
                 args.evm_provider_url.as_str(),
-                args.evm_provider_reconnects,
                 chain_id,
             )
             .await?;
 
-            rpc::listen(args.bind_address, pg_pool, evm_client).await
+            rpc::listen(args.bind_address, evm_client, pg_pool, args.changefeed_sink).await
         }
     }
 }
