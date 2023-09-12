@@ -15,14 +15,16 @@ pub struct Publications<E: EVMClient + 'static> {
     evm_client: E,
     pg_pool: PgPool,
     cf_sink: String,
+    cf_schedule: String,
 }
 
 impl<E: EVMClient + 'static> Publications<E> {
-    pub fn new(evm_client: E, pg_pool: PgPool, cf_sink: String) -> Self {
+    pub fn new(evm_client: E, pg_pool: PgPool, cf_sink: String, cf_schedule: String) -> Self {
         Self {
             evm_client,
             pg_pool,
             cf_sink,
+            cf_schedule,
         }
     }
 }
@@ -42,9 +44,11 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let name = format!("{ns}.{rel}");
         let table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
         let cf_sink = self.cf_sink.clone();
+        let cf_schedule = self.cf_schedule.clone();
         let cf_stmt = pry!(crate::sql::scheduled_changefeed_create(
             name.clone(),
-            cf_sink
+            cf_sink,
+            cf_schedule
         ));
 
         debug!(
@@ -132,10 +136,11 @@ pub async fn listen<E: EVMClient>(
     evm_client: E,
     pg_pool: PgPool,
     cf_sink: String,
+    cf_schedule: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let pubs_handler = Publications::new(evm_client, pg_pool, cf_sink);
+            let pubs_handler = Publications::new(evm_client, pg_pool, cf_sink, cf_schedule);
             let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
 
             let listener = tokio::net::TcpListener::bind(&addr).await?;
