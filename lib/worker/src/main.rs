@@ -47,6 +47,10 @@ struct Cli {
     #[arg(long, env)]
     changefeed_sink: String,
 
+    /// CockroachDB changefeed crontab schedule
+    #[arg(long, env, default_value = "0 0 * * *")]
+    changefeed_schedule: String,
+
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     bind_address: SocketAddr,
@@ -102,6 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 MockClient::new().await?,
                 pg_pool,
                 args.changefeed_sink,
+                args.changefeed_schedule,
             )
             .await
         }
@@ -173,7 +178,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(args.bind_address, evm_client, pg_pool, args.changefeed_sink).await
+            rpc::listen(
+                args.bind_address,
+                evm_client,
+                pg_pool,
+                args.changefeed_sink,
+                args.changefeed_schedule,
+            )
+            .await
         }
     }
 }

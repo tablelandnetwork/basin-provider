@@ -70,6 +70,12 @@ Options:
           
           [env: CHANGEFEED_SINK=]
 
+      --changefeed-schedule <CHANGEFEED_SCHEDULE>
+          CockroachDB changefeed crontab schedule
+          
+          [env: CHANGEFEED_SCHEDULE=]
+          [default: "0 0 * * *"]
+
       --bind-address <BIND_ADDRESS>
           Host and port to bind the RPC API to
           
