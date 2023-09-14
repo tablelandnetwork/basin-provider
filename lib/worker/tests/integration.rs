@@ -1,19 +1,21 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::crypto::keccak256;
-use basin_worker::rpc;
-use basin_worker::utils::canonicalize_tx;
+use basin_worker::{crypto::keccak256, rpc, utils::canonicalize_tx};
+use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use ethers::core::rand;
-use ethers::signers::{LocalWallet, Signer};
+use ethers::{
+    core::rand,
+    signers::{LocalWallet, Signer},
+};
 use futures::AsyncReadExt;
 use rand::{thread_rng, Rng};
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
-use std::net::SocketAddr;
-use std::time::Duration;
-use tokio::task::{spawn_local, LocalSet};
-use tokio::time::sleep;
+use std::{net::SocketAddr, time::Duration};
+use tokio::{
+    task::{spawn_local, LocalSet},
+    time::sleep,
+};
 
 async fn spawn_worker() -> SocketAddr {
     spawn_local(async {
@@ -126,45 +128,55 @@ async fn push_publication_works() {
             let mut request = client.push_request();
             request.get().set_ns(&ns);
             request.get().set_rel(&rel);
-
-            let mut recs = request.get().init_tx().init_records(1);
-            {
-                let mut r = recs.reborrow().get(0);
-                r.set_action("I");
-                let mut cols = r.init_columns(3);
-                {
-                    let mut c = cols.reborrow().get(0);
-                    c.set_name("id");
-                    c.set_value(serde_json::to_string(&1).unwrap().as_bytes());
-                }
-                {
-                    let mut c = cols.reborrow().get(1);
-                    c.set_name("msg");
-                    c.set_value(serde_json::to_string(&"hello").unwrap().as_bytes());
-                }
-                {
-                    let mut c = cols.reborrow().get(2);
-                    c.set_name("val");
-                    c.set_value(serde_json::to_string(&0.1).unwrap().as_bytes());
-                }
-            }
-
-            let tx = canonicalize_tx(request.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
-            let hash = keccak256(&tx);
-            let secp = Secp256k1::new();
-            let secret_key = SecretKey::from_slice(&wallet.signer().to_bytes().to_vec()).unwrap();
-            let message = Message::from_slice(&hash).unwrap();
-            let (rid, sig) = secp
-                .sign_ecdsa_recoverable(&message, &secret_key)
-                .serialize_compact();
-            let mut sigb = Vec::with_capacity(65);
-            sigb.extend_from_slice(&sig);
-            sigb.push(rid.to_i32() as u8);
-            request.get().set_sig(&sigb);
+            rand_records(&mut request, wallet, 10);
 
             request.send().promise.await.unwrap();
         })
         .await;
+}
+
+fn rand_records(
+    req: &mut Request<publications::push_params::Owned, publications::push_results::Owned>,
+    wallet: LocalWallet,
+    num: u32,
+) {
+    let secp = Secp256k1::new();
+    let pk = SecretKey::from_slice(&wallet.signer().to_bytes().to_vec()).unwrap();
+
+    let mut recs = req.get().init_tx().init_records(num);
+    for i in 0..num {
+        let mut r = recs.reborrow().get(i);
+        r.set_action("I");
+        let mut cols = r.init_columns(3);
+        {
+            let mut c = cols.reborrow().get(0);
+            c.set_name("id");
+            let id = i + 1;
+            c.set_value(serde_json::to_string(&id).unwrap().as_bytes());
+        }
+        {
+            let mut c = cols.reborrow().get(1);
+            c.set_name("msg");
+            let m = rand_str(16);
+            c.set_value(serde_json::to_string(&m).unwrap().as_bytes());
+        }
+        {
+            let mut c = cols.reborrow().get(2);
+            c.set_name("val");
+            let mut rng = rand::thread_rng();
+            let v = rng.gen::<f64>();
+            c.set_value(serde_json::to_string(&v).unwrap().as_bytes());
+        }
+    }
+
+    let tx = canonicalize_tx(req.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
+    let hash = keccak256(&tx);
+    let msg = Message::from_slice(&hash).unwrap();
+    let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();
+    let mut sigb = Vec::with_capacity(65);
+    sigb.extend_from_slice(&sig);
+    sigb.push(rid.to_i32() as u8);
+    req.get().set_sig(&sigb);
 }
 
 fn rand_str(l: usize) -> String {
