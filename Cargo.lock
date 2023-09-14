@@ -272,7 +272,6 @@ dependencies = [
  "ethers",
  "serde",
  "thiserror",
- "tiny-keccak",
  "tokio",
 ]
 
@@ -307,7 +306,6 @@ dependencies = [
  "sqlx",
  "stderrlog",
  "thiserror",
- "tiny-keccak",
  "tokio",
  "tokio-util",
  "warp",
