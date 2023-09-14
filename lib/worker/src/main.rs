@@ -1,10 +1,5 @@
-mod crypto;
-mod db;
-mod http;
-mod rpc;
-mod sql;
-
 use basin_evm::{testing::MockClient, BasinClient};
+use basin_worker::{http, rpc};
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, ValueEnum};
 use ethers::signers::LocalWallet;

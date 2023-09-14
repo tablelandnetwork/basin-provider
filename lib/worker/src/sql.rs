@@ -14,8 +14,7 @@ pub fn schema_to_table_create(
         let ctype = column.get_type()?;
         let mut col = format!("{cname} {ctype}");
 
-        let is_nullable = column.get_is_nullable();
-        if is_nullable {
+        if !column.get_is_nullable() {
             col = format!("{col} NOT NULL");
         }
         let is_pk = column.get_is_part_of_primary_key();
@@ -32,9 +31,17 @@ pub fn schema_to_table_create(
             }
         }
     }
+
     if !pks.is_empty() {
         cols = format!("{cols},PRIMARY KEY ({pks})");
     }
+
+    if cols.is_empty() {
+        return Err(capnp::Error::failed(
+            "schema must have at least one column".into(),
+        ));
+    }
+
     Ok(format!("CREATE TABLE IF NOT EXISTS {pub_name} ({cols})",))
 }
 
@@ -70,9 +77,19 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
                 vals = format!("{vals},{value}");
             }
         }
-        inserts.push(format!("INSERT INTO {pub_name} ({cols}) VALUES({vals})").replace('\"', "'"));
+        if !(cols.is_empty() || vals.is_empty()) {
+            inserts
+                .push(format!("INSERT INTO {pub_name} ({cols}) VALUES({vals})").replace('\"', "'"));
+        }
     }
-    Ok(inserts)
+
+    if inserts.len() > 0 {
+        Ok(inserts)
+    } else {
+        Err(capnp::Error::failed(
+            "transaction must have at least one record".into(),
+        ))
+    }
 }
 
 /// Returns a SQL scheduled changefeed create statement.
