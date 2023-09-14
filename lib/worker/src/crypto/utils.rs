@@ -1,11 +1,10 @@
-use ethers::types::Address;
+use ethers::{types::Address, utils::keccak256};
 use once_cell::sync::Lazy;
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
     All, Message, PublicKey, Secp256k1,
 };
 use thiserror::Error;
-use tiny_keccak::{Hasher, Keccak};
 
 static CONTEXT: Lazy<Secp256k1<All>> = Lazy::new(Secp256k1::new);
 
@@ -60,13 +59,4 @@ fn public_key_address(public_key: &PublicKey) -> Address {
     let hash = keccak256(&public_key[1..]);
 
     Address::from_slice(&hash[12..])
-}
-
-/// Compute the Keccak-256 hash of input bytes.
-pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
-    let mut output = [0u8; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(bytes);
-    hasher.finalize(&mut output);
-    output
 }

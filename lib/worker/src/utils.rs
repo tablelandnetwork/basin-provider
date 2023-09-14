@@ -1,6 +1,6 @@
 use basin_protocol::tx;
 use capnp::{data, message, private::units::BYTES_PER_WORD};
-use ethers::types::Address;
+use ethers::{types::Address, utils::keccak256};
 
 /// Recovers address from tx:Reader
 pub fn recover_addr(tx: tx::Reader, sig: data::Reader) -> capnp::Result<Address> {
@@ -8,7 +8,7 @@ pub fn recover_addr(tx: tx::Reader, sig: data::Reader) -> capnp::Result<Address>
         return Err(capnp::Error::failed("signature must be 65 bytes".into()));
     }
     let payload = canonicalize_tx(tx)?;
-    let hash = crate::crypto::keccak256(payload.as_slice());
+    let hash = keccak256(payload.as_slice());
     let addr = crate::crypto::recover(hash.as_slice(), &sig[..64], sig[64] as i32)?;
     Ok(addr)
 }

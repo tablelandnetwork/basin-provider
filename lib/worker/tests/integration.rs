@@ -1,11 +1,12 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{crypto::keccak256, rpc, utils::canonicalize_tx};
+use basin_worker::{rpc, utils::canonicalize_tx};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
     core::rand,
     signers::{LocalWallet, Signer},
+    utils::keccak256,
 };
 use futures::AsyncReadExt;
 use rand::{thread_rng, Rng};
