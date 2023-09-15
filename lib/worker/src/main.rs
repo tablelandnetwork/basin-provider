@@ -1,12 +1,13 @@
 use basin_evm::{testing::MockClient, BasinClient};
+use basin_worker::exporter::start_exporter;
 use basin_worker::{http, rpc};
 use clap::error::ErrorKind;
-use clap::{CommandFactory, Parser, ValueEnum};
+use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::signers::LocalWallet;
 use ethers::types::{Address, Chain};
 use log::info;
 use sqlx::postgres::PgPool;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 use stderrlog::Timestamp;
 use warp::Filter;
 
@@ -38,13 +39,13 @@ struct Cli {
     #[arg(long, env)]
     database_url: String,
 
-    /// CockroachDB changefeed sink
+    /// CockroachDB export sink
     #[arg(long, env)]
-    changefeed_sink: String,
+    export_sink: String,
 
-    /// CockroachDB changefeed crontab schedule
-    #[arg(long, env, default_value = "0 0 * * *")]
-    changefeed_schedule: String,
+    /// CockroachDB export interval
+    #[arg(long, env, value_parser = parse_duration)]
+    export_interval: Duration,
 
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
@@ -61,6 +62,10 @@ struct Cli {
     /// Silence logging
     #[arg(short, long, env)]
     quiet: bool,
+}
+
+fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
+    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -89,22 +94,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .run(args.bind_health_address);
     tokio::spawn(async {
-        info!("Basin Health API started");
+        info!("health API started");
         warp_server.await
     });
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
+
+    start_exporter(pg_pool.clone(), args.export_sink, args.export_interval).await?;
+
     match args.evm_type {
-        EvmType::Mem => {
-            rpc::listen(
-                args.bind_address,
-                MockClient::new().await?,
-                pg_pool,
-                args.changefeed_sink,
-                args.changefeed_schedule,
-            )
-            .await
-        }
+        EvmType::Mem => rpc::listen(args.bind_address, MockClient::new().await?, pg_pool).await,
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -173,14 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(
-                args.bind_address,
-                evm_client,
-                pg_pool,
-                args.changefeed_sink,
-                args.changefeed_schedule,
-            )
-            .await
+            rpc::listen(args.bind_address, evm_client, pg_pool).await
         }
     }
 }

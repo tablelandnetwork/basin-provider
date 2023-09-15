@@ -1,6 +1,6 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{rpc, utils::canonicalize_tx};
+use basin_worker::{exporter, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -23,20 +23,28 @@ async fn spawn_worker() -> SocketAddr {
         let bind_address: SocketAddr = std::env::var("BIND_ADDRESS").unwrap().parse().unwrap();
         let database_url = std::env::var("DATABASE_URL").unwrap();
         let pg_pool = PgPool::connect(&database_url).await.unwrap();
-        let cf_sink = std::env::var("CHANGEFEED_SINK").unwrap();
-        let cf_schedule = std::env::var("CHANGEFEED_SCHEDULE").unwrap();
-        rpc::listen(
-            bind_address,
-            MockClient::new().await.unwrap(),
-            pg_pool,
-            cf_sink,
-            cf_schedule,
-        )
-        .await
-        .unwrap()
+        rpc::listen(bind_address, MockClient::new().await.unwrap(), pg_pool)
+            .await
+            .unwrap()
     });
     sleep(Duration::from_millis(5_000)).await;
     std::env::var("BIND_ADDRESS").unwrap().parse().unwrap()
+}
+
+async fn spawn_exporter() {
+    spawn_local(async {
+        let database_url = std::env::var("DATABASE_URL").unwrap();
+        let pg_pool = PgPool::connect(&database_url).await.unwrap();
+        let sink = std::env::var("EXPORT_SINK").unwrap();
+        let schedule = std::env::var("EXPORT_SCHEDULE").unwrap();
+        exporter::start_exporter(pg_pool, sink, parse_duration(&schedule).unwrap())
+            .await
+            .unwrap()
+    });
+}
+
+fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
+    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 async fn get_client(worker_address: SocketAddr) -> publications::Client {
@@ -92,6 +100,7 @@ async fn push_publication_works() {
     local
         .run_until(async {
             let worker_address = spawn_worker().await;
+            spawn_exporter().await;
             let client = get_client(worker_address).await;
 
             let wallet = LocalWallet::new(&mut thread_rng());
@@ -120,7 +129,7 @@ async fn push_publication_works() {
             {
                 let mut c = cols.reborrow().get(2);
                 c.set_name("val");
-                c.set_type("DECIMAL");
+                c.set_type("REAL");
                 c.set_is_nullable(true);
                 c.set_is_part_of_primary_key(false);
             }
@@ -132,6 +141,8 @@ async fn push_publication_works() {
             rand_records(&mut request, wallet, 10);
 
             request.send().promise.await.unwrap();
+
+            // tokio::time::sleep(Duration::from_secs(30)).await;
         })
         .await;
 }
@@ -170,7 +181,7 @@ fn rand_records(
         }
     }
 
-    let tx = canonicalize_tx(req.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
+    let tx = utils::canonicalize_tx(req.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
     let hash = keccak256(&tx);
     let msg = Message::from_slice(&hash).unwrap();
     let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();

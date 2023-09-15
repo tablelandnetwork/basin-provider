@@ -1,12 +1,10 @@
 use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::capability::Promise;
-use capnp_rpc::pry;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::types::Address;
 use futures::AsyncReadExt;
-use log::debug;
-use log::info;
+use log::{debug, info};
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
 
@@ -14,17 +12,13 @@ use std::net::SocketAddr;
 pub struct Publications<E: EVMClient + 'static> {
     evm_client: E,
     pg_pool: PgPool,
-    cf_sink: String,
-    cf_schedule: String,
 }
 
 impl<E: EVMClient + 'static> Publications<E> {
-    pub fn new(evm_client: E, pg_pool: PgPool, cf_sink: String, cf_schedule: String) -> Self {
+    pub fn new(evm_client: E, pg_pool: PgPool) -> Self {
         Self {
             evm_client,
             pg_pool,
-            cf_sink,
-            cf_schedule,
         }
     }
 }
@@ -49,17 +43,9 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if owner.is_zero() {
             return Promise::err(capnp::Error::failed("owner is required".into()));
         }
-        println!("create address: {}", owner.to_string());
         let name = format!("{ns}.{rel}");
         let schema = pry!(args.get_schema());
         let table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
-        let cf_sink = self.cf_sink.clone();
-        let cf_schedule = self.cf_schedule.clone();
-        let cf_stmt = pry!(crate::sql::scheduled_changefeed_create(
-            name.clone(),
-            cf_sink,
-            cf_schedule
-        ));
 
         debug!(
             "publication create {name} for {}: {table_stmt}",
@@ -71,7 +57,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
             crate::db::namespace_create(&p, ns, owner).await?;
-            crate::db::pub_table_create(&p, &table_stmt, &cf_stmt).await?;
+            crate::db::pub_table_create(&p, &table_stmt).await?;
             Ok(())
         })
     }
@@ -97,10 +83,8 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         }
         let tx = pry!(args.get_tx());
         let owner = pry!(crate::utils::recover_addr(tx, sig));
-        println!("push address: {}", owner.to_string());
         let name = format!("{ns}.{rel}");
         let insert_stmt = pry!(crate::sql::tx_to_table_inserts(name.clone(), tx));
-        println!("{:?}", insert_stmt);
 
         debug!(
             "publication push {name} for {}: {:?}",
@@ -110,9 +94,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            let is_owner = crate::db::is_namespace_owner(&p, ns, owner).await?;
-            println!("is owner: {}", is_owner);
-            if is_owner {
+            if crate::db::is_namespace_owner(&p, ns, owner).await? {
                 crate::db::pub_table_insert(&p, insert_stmt).await?;
                 Ok(())
             } else {
@@ -127,15 +109,13 @@ pub async fn listen<E: EVMClient>(
     addr: SocketAddr,
     evm_client: E,
     pg_pool: PgPool,
-    cf_sink: String,
-    cf_schedule: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let pubs_handler = Publications::new(evm_client, pg_pool, cf_sink, cf_schedule);
+            let pubs_handler = Publications::new(evm_client, pg_pool);
             let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
             let listener = tokio::net::TcpListener::bind(&addr).await?;
-            info!("Basin RPC API started");
+            info!("RPC API started");
             loop {
                 let (stream, _) = listener.accept().await?;
                 stream.set_nodelay(true)?;

@@ -41,8 +41,11 @@ pub fn schema_to_table_create(
             "schema must have at least one column".into(),
         ));
     }
+    cols = format!("__basin_created TIMESTAMP DEFAULT now(),{cols}");
 
-    Ok(format!("CREATE TABLE IF NOT EXISTS {pub_name} ({cols})",))
+    Ok(format!(
+        "CREATE TABLE IF NOT EXISTS {pub_name} ({cols},INDEX (__basin_created))",
+    ))
 }
 
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
@@ -90,16 +93,4 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
             "transaction must have at least one record".into(),
         ))
     }
-}
-
-/// Returns a SQL scheduled changefeed create statement.
-pub fn scheduled_changefeed_create(
-    pub_name: String,
-    cf_sink: String,
-    cf_schedule: String,
-) -> capnp::Result<String> {
-    let schedule = format!("{}_schedule", pub_name.replace(".", "_"));
-    Ok(format!(
-        "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH full_table_name, format=parquet RECURRING '{cf_schedule}' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
-    ))
 }
