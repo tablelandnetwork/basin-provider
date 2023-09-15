@@ -56,6 +56,7 @@ async fn txn_execute(
     sqlx::query(stmt).execute(&mut **txn).await
 }
 
+/// Internal type used during export.
 #[derive(Debug)]
 struct Ns {
     id: i64,
@@ -64,6 +65,7 @@ struct Ns {
     rels: Vec<String>,
 }
 
+/// Exports new publication data to sink.
 pub async fn export_into(pool: &PgPool, sink: String) -> Result<()> {
     let now_res = sqlx::query("SELECT now()").fetch_one(pool).await?;
     let now: chrono::DateTime<chrono::Utc> = now_res.try_get("now")?;
