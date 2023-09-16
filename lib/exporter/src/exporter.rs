@@ -18,15 +18,21 @@ struct Ns {
 pub async fn start(
     pg_pool: PgPool,
     sink: String,
+    auth: String,
+    creds: String,
     interval: Duration,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut scheduler = JobScheduler::new().await?;
     let job = Job::new_repeated_async(interval, move |_uuid, _l| {
         let p = pg_pool.clone();
         let s = sink.clone();
+        let a = auth.clone();
+        let c = creds.clone();
         Box::pin(async move {
             info!("export job started");
-            export(&p, s).await.unwrap_or_else(|err| warn!("{err}"));
+            export(&p, s, a, c)
+                .await
+                .unwrap_or_else(|err| warn!("{err}"));
             info!("export job ended");
         })
     })?;
@@ -43,7 +49,7 @@ pub async fn start(
 }
 
 /// Exports new publication data to sink.
-async fn export(pool: &PgPool, sink: String) -> Result<()> {
+async fn export(pool: &PgPool, sink: String, auth: String, creds: String) -> Result<()> {
     let now_res = sqlx::query("SELECT now()").fetch_one(pool).await?;
     let now: chrono::DateTime<chrono::Utc> = now_res.try_get("now")?;
 
@@ -107,9 +113,10 @@ async fn export(pool: &PgPool, sink: String) -> Result<()> {
 
             // This conditional isn't needed, but as long as we're logging count, may as well use it
             if count > 0 {
+                let dest = format!("{sink}/{}/{rel}?AUTH={auth}&CREDENTIALS={creds}", ns.name);
                 // Unprepared query required for EXPORT
                 pool.execute(
-                    format!("EXPORT INTO PARQUET '{sink}' FROM {select} WHERE {window}").as_str(),
+                    format!("EXPORT INTO PARQUET '{dest}' FROM {select} WHERE {window}").as_str(),
                 )
                 .await?;
             }

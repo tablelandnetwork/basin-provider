@@ -12,6 +12,14 @@ struct Cli {
     #[arg(long, env)]
     export_sink: String,
 
+    /// CockroachDB export sink
+    #[arg(long, env, default_value = "specified")]
+    export_auth: String,
+
+    /// CockroachDB export sink
+    #[arg(long, env)]
+    export_credentials: String,
+
     /// CockroachDB export interval
     #[arg(long, env, value_parser = parse_duration, default_value = "24h")]
     export_interval: Duration,
@@ -53,7 +61,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()?;
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
-    start(pg_pool.clone(), args.export_sink, args.export_interval).await?;
+    start(
+        pg_pool.clone(),
+        args.export_sink,
+        args.export_auth,
+        args.export_credentials,
+        args.export_interval,
+    )
+    .await?;
 
     Ok(tokio::signal::ctrl_c().await?)
 }
