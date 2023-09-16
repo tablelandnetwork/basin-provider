@@ -276,6 +276,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "basin_exporter"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "futures",
+ "humantime",
+ "log",
+ "serde",
+ "sqlx",
+ "stderrlog",
+ "thiserror",
+ "tokio",
+ "tokio-cron-scheduler",
+]
+
+[[package]]
 name = "basin_protocol"
 version = "0.1.0"
 dependencies = [
@@ -290,12 +307,11 @@ dependencies = [
  "anvil",
  "array-bytes",
  "basin_evm",
+ "basin_exporter",
  "basin_protocol",
  "capnp",
  "capnp-rpc",
- "chrono",
  "clap",
- "dotenvy",
  "ethers",
  "futures",
  "hex",
@@ -303,13 +319,11 @@ dependencies = [
  "log",
  "once_cell",
  "secp256k1",
- "serde",
  "serde_json",
  "sqlx",
  "stderrlog",
  "thiserror",
  "tokio",
- "tokio-cron-scheduler",
  "tokio-util",
  "warp",
 ]

@@ -1,5 +1,4 @@
 use basin_evm::{testing::MockClient, BasinClient};
-use basin_worker::exporter::start_exporter;
 use basin_worker::{http, rpc};
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
@@ -7,7 +6,7 @@ use ethers::signers::LocalWallet;
 use ethers::types::{Address, Chain};
 use log::info;
 use sqlx::postgres::PgPool;
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 use stderrlog::Timestamp;
 use warp::Filter;
 
@@ -39,14 +38,6 @@ struct Cli {
     #[arg(long, env)]
     database_url: String,
 
-    /// CockroachDB export sink
-    #[arg(long, env)]
-    export_sink: String,
-
-    /// CockroachDB export interval
-    #[arg(long, env, value_parser = parse_duration)]
-    export_interval: Duration,
-
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     bind_address: SocketAddr,
@@ -62,10 +53,6 @@ struct Cli {
     /// Silence logging
     #[arg(short, long, env)]
     quiet: bool,
-}
-
-fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
-    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -99,8 +86,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
-
-    start_exporter(pg_pool.clone(), args.export_sink, args.export_interval).await?;
 
     match args.evm_type {
         EvmType::Mem => rpc::listen(args.bind_address, MockClient::new().await?, pg_pool).await,

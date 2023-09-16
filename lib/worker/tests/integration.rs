@@ -1,6 +1,6 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{exporter, rpc, utils};
+use basin_worker::{rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -37,7 +37,7 @@ async fn spawn_exporter() {
         let pg_pool = PgPool::connect(&database_url).await.unwrap();
         let sink = std::env::var("EXPORT_SINK").unwrap();
         let schedule = std::env::var("EXPORT_SCHEDULE").unwrap();
-        exporter::start_exporter(pg_pool, sink, parse_duration(&schedule).unwrap())
+        basin_exporter::start(pg_pool, sink, parse_duration(&schedule).unwrap())
             .await
             .unwrap()
     });
@@ -141,8 +141,6 @@ async fn push_publication_works() {
             rand_records(&mut request, wallet, 10);
 
             request.send().promise.await.unwrap();
-
-            // tokio::time::sleep(Duration::from_secs(30)).await;
         })
         .await;
 }
