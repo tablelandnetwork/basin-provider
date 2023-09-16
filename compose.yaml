@@ -1,6 +1,6 @@
 services:
   crdb:
-    image: cockroachdb/cockroach:v23.1.8
+    image: cockroachdb/cockroach:v23.1.9
     ports:
       - "26257:26257"
       - "8080:8080"

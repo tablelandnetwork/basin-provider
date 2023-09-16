@@ -6,7 +6,7 @@ use ethers::types::Address;
 use futures::AsyncReadExt;
 use log::{debug, info};
 use sqlx::postgres::PgPool;
-use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 /// RPC service wrapper for publications.
 pub struct Publications<E: EVMClient + 'static> {
@@ -106,18 +106,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
 /// Listens for RPC messages from Basin clients
 pub async fn listen<E: EVMClient>(
-    addr: SocketAddr,
     evm_client: E,
     pg_pool: PgPool,
+    tcp_listener: TcpListener,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
             let pubs_handler = Publications::new(evm_client, pg_pool);
             let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
-            let listener = tokio::net::TcpListener::bind(&addr).await?;
             info!("RPC API started");
             loop {
-                let (stream, _) = listener.accept().await?;
+                let (stream, _) = tcp_listener.accept().await?;
                 stream.set_nodelay(true)?;
                 let (reader, writer) =
                     tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();

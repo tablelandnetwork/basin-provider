@@ -319,12 +319,14 @@ dependencies = [
  "log",
  "once_cell",
  "secp256k1",
+ "serde",
  "serde_json",
  "sqlx",
  "stderrlog",
  "thiserror",
  "tokio",
  "tokio-util",
+ "url",
  "warp",
 ]
 

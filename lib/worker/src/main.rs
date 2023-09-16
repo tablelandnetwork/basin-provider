@@ -1,9 +1,11 @@
 use basin_evm::{testing::MockClient, BasinClient};
-use basin_worker::{http, rpc};
+use basin_worker::{db, http, rpc};
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
-use ethers::signers::LocalWallet;
-use ethers::types::{Address, Chain};
+use ethers::{
+    signers::LocalWallet,
+    types::{Address, Chain},
+};
 use log::info;
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
@@ -86,9 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
+    db::setup(pg_pool.clone(), &args.database_url).await?;
+
+    let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
 
     match args.evm_type {
-        EvmType::Mem => rpc::listen(args.bind_address, MockClient::new().await?, pg_pool).await,
+        EvmType::Mem => rpc::listen(MockClient::new().await?, pg_pool, listener).await,
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -157,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(args.bind_address, evm_client, pg_pool).await
+            rpc::listen(evm_client, pg_pool, listener).await
         }
     }
 }

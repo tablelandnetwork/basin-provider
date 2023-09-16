@@ -6,9 +6,9 @@ on:
       - main
   pull_request:
 
-defaults:
-  run:
-    shell: bash
+concurrency:
+  group: format-${{github.ref}}
+  cancel-in-progress: true
 
 jobs:
   rustfmt:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -54,7 +54,9 @@ jobs:
          use-tool-cache: true
 
      - name: Run tomlfmt
-       uses: actions-rs/cargo@v1
-       with:
-         command: tomlfmt
-         args: --dryrun
+       run: |
+         cargo tomlfmt --dryrun
+         (cd ./lib/evm; cargo tomlfmt --dryrun)
+         (cd ./lib/exporter; cargo tomlfmt --dryrun)
+         (cd ./lib/protocol; cargo tomlfmt --dryrun)
+         (cd ./lib/worker; cargo tomlfmt --dryrun)

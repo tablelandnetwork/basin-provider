@@ -1,6 +1,6 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{rpc, utils};
+use basin_worker::{db, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -18,28 +18,31 @@ use tokio::{
     time::sleep,
 };
 
-async fn spawn_worker() -> SocketAddr {
-    spawn_local(async {
-        let bind_address: SocketAddr = std::env::var("BIND_ADDRESS").unwrap().parse().unwrap();
-        let database_url = std::env::var("DATABASE_URL").unwrap();
-        let pg_pool = PgPool::connect(&database_url).await.unwrap();
-        rpc::listen(bind_address, MockClient::new().await.unwrap(), pg_pool)
+async fn spawn_worker(pool: PgPool) -> SocketAddr {
+    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    let bind_addr = listener.local_addr().unwrap();
+    spawn_local(async move {
+        rpc::listen(MockClient::new().await.unwrap(), pool, listener)
             .await
             .unwrap()
     });
     sleep(Duration::from_millis(5_000)).await;
-    std::env::var("BIND_ADDRESS").unwrap().parse().unwrap()
+    bind_addr
 }
 
-async fn spawn_exporter() {
+async fn spawn_exporter(pool: PgPool) {
     spawn_local(async {
-        let database_url = std::env::var("DATABASE_URL").unwrap();
-        let pg_pool = PgPool::connect(&database_url).await.unwrap();
-        let sink = std::env::var("EXPORT_SINK").unwrap();
-        let schedule = std::env::var("EXPORT_SCHEDULE").unwrap();
-        basin_exporter::start(pg_pool, sink, parse_duration(&schedule).unwrap())
-            .await
-            .unwrap()
+        let interval = std::env::var("EXPORT_INTERVAL").unwrap();
+        basin_exporter::start(
+            pool,
+            std::env::var("EXPORT_SINK").unwrap(),
+            "specified".to_string(),
+            std::env::var("EXPORT_CREDENTIALS").unwrap(),
+            parse_duration(&interval).unwrap(),
+        )
+        .await
+        .unwrap()
     });
 }
 
@@ -65,12 +68,22 @@ async fn get_client(worker_address: SocketAddr) -> publications::Client {
     client
 }
 
+async fn get_pg_pool(db_name: String) -> (PgPool, String) {
+    let host = std::env::var("DATABASE_HOST").unwrap();
+    let url = format!("postgres://root@{}/{}?sslmode=disable", host, db_name);
+    (PgPool::connect(&url).await.unwrap(), url)
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn create_publication_works() {
     let local = LocalSet::new();
     local
         .run_until(async {
-            let worker_address = spawn_worker().await;
+            let db_name = rand_str(8);
+            let (pool, db_url) = get_pg_pool(db_name).await;
+            db::setup(pool.clone(), &db_url).await.unwrap();
+
+            let worker_address = spawn_worker(pool.clone()).await;
             let client = get_client(worker_address).await;
 
             let wallet = LocalWallet::new(&mut thread_rng());
@@ -90,6 +103,8 @@ async fn create_publication_works() {
             }
 
             request.send().promise.await.unwrap();
+
+            db::drop(pool.clone(), &db_url).await.unwrap();
         })
         .await;
 }
@@ -99,8 +114,12 @@ async fn push_publication_works() {
     let local = LocalSet::new();
     local
         .run_until(async {
-            let worker_address = spawn_worker().await;
-            spawn_exporter().await;
+            let db_name = rand_str(8);
+            let (pool, db_url) = get_pg_pool(db_name).await;
+            db::setup(pool.clone(), &db_url).await.unwrap();
+
+            let worker_address = spawn_worker(pool.clone()).await;
+            spawn_exporter(pool.clone()).await;
             let client = get_client(worker_address).await;
 
             let wallet = LocalWallet::new(&mut thread_rng());
@@ -141,6 +160,8 @@ async fn push_publication_works() {
             rand_records(&mut request, wallet, 10);
 
             request.send().promise.await.unwrap();
+
+            db::drop(pool.clone(), &db_url).await.unwrap();
         })
         .await;
 }
