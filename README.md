@@ -23,15 +23,15 @@ _To-do_
 
 ```
 > basin_worker --help
-The Tableland Basin Provider.
+Ingests publications to Basin
 
-Usage: basin_worker [OPTIONS] --database-url <DATABASE_URL> --changefeed-sink <CHANGEFEED_SINK>
+Usage: basin_worker [OPTIONS] --database-url <DATABASE_URL>
 
 Options:
       --evm-type <EVM_TYPE>
           EVM type (other EVM flags are ignored when this is 'mem')
           
-          [env: EVM_TYPE=]
+          [env: EVM_TYPE=mem]
           [default: remote]
 
           Possible values:
@@ -65,17 +65,6 @@ Options:
           
           [env: DATABASE_URL=]
 
-      --changefeed-sink <CHANGEFEED_SINK>
-          CockroachDB changefeed sink
-          
-          [env: CHANGEFEED_SINK=]
-
-      --changefeed-schedule <CHANGEFEED_SCHEDULE>
-          CockroachDB changefeed crontab schedule
-          
-          [env: CHANGEFEED_SCHEDULE=]
-          [default: "0 0 * * *"]
-
       --bind-address <BIND_ADDRESS>
           Host and port to bind the RPC API to
           
@@ -91,7 +80,7 @@ Options:
   -v, --verbosity...
           Logging verbosity (repeat for more verbose logging)
           
-          [env: VERBOSITY=]
+          [env: VERBOSITY=5]
 
   -q, --quiet
           Silence logging
