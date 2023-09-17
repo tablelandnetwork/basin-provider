@@ -3,4 +3,10 @@
 interface Publications {
     create @0 (ns :Text, rel :Text, schema :import "./definitions.capnp" .Schema, owner :Data);
     push @1 (ns :Text, rel :Text, tx :import "./definitions.capnp" .Tx, sig :Data);
+
+    upload @2 (ns :Text, rel :Text) -> (callback :Callback);
+    interface Callback {
+        write @0 (chunk :Data) -> stream;
+        done @1 (sig :Data);
+    }
 }

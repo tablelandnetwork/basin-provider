@@ -1,6 +1,6 @@
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{db, rpc, utils};
+use basin_worker::{db, gcs::GcsClient, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -22,8 +22,14 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     let bind_addr = listener.local_addr().unwrap();
+    let gcs_client = GcsClient::new(
+        std::env::var("EXPORT_BUCKET").unwrap(),
+        std::env::var("EXPORT_CREDENTIALS").unwrap(),
+    )
+    .await
+    .unwrap();
     spawn_local(async move {
-        rpc::listen(MockClient::new().await.unwrap(), pool, listener)
+        rpc::listen(MockClient::new().await.unwrap(), pool, gcs_client, listener)
             .await
             .unwrap()
     });
@@ -36,8 +42,7 @@ async fn spawn_exporter(pool: PgPool) {
         let interval = std::env::var("EXPORT_INTERVAL").unwrap();
         basin_exporter::start(
             pool,
-            std::env::var("EXPORT_SINK").unwrap(),
-            "specified".to_string(),
+            std::env::var("EXPORT_BUCKET").unwrap(),
             std::env::var("EXPORT_CREDENTIALS").unwrap(),
             parse_duration(&interval).unwrap(),
         )
@@ -89,15 +94,15 @@ async fn create_publication_works() {
             let wallet = LocalWallet::new(&mut thread_rng());
 
             let mut request = client.create_request();
-            request.get().set_ns(&rand_str(12));
-            request.get().set_rel(&rand_str(12));
+            request.get().set_ns(rand_str(12).as_str().into());
+            request.get().set_rel(rand_str(12).as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
 
             let mut cols = request.get().init_schema().init_columns(1);
             {
                 let mut c = cols.reborrow().get(0);
-                c.set_name("id");
-                c.set_type("SERIAL");
+                c.set_name("id".into());
+                c.set_type("SERIAL".into());
                 c.set_is_nullable(false);
                 c.set_is_part_of_primary_key(true);
             }
@@ -127,36 +132,36 @@ async fn push_publication_works() {
             let rel = rand_str(12);
 
             let mut request = client.create_request();
-            request.get().set_ns(&ns);
-            request.get().set_rel(&rel);
+            request.get().set_ns(ns.as_str().into());
+            request.get().set_rel(rel.as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
             let mut cols = request.get().init_schema().init_columns(3);
             {
                 let mut c = cols.reborrow().get(0);
-                c.set_name("id");
-                c.set_type("SERIAL");
+                c.set_name("id".into());
+                c.set_type("SERIAL".into());
                 c.set_is_nullable(false);
                 c.set_is_part_of_primary_key(true);
             }
             {
                 let mut c = cols.reborrow().get(1);
-                c.set_name("msg");
-                c.set_type("TEXT");
+                c.set_name("msg".into());
+                c.set_type("TEXT".into());
                 c.set_is_nullable(true);
                 c.set_is_part_of_primary_key(false);
             }
             {
                 let mut c = cols.reborrow().get(2);
-                c.set_name("val");
-                c.set_type("REAL");
+                c.set_name("val".into());
+                c.set_type("REAL".into());
                 c.set_is_nullable(true);
                 c.set_is_part_of_primary_key(false);
             }
             request.send().promise.await.unwrap();
 
             let mut request = client.push_request();
-            request.get().set_ns(&ns);
-            request.get().set_rel(&rel);
+            request.get().set_ns(ns.as_str().into());
+            request.get().set_rel(rel.as_str().into());
             rand_records(&mut request, wallet, 10);
 
             request.send().promise.await.unwrap();
@@ -177,23 +182,23 @@ fn rand_records(
     let mut recs = req.get().init_tx().init_records(num);
     for i in 0..num {
         let mut r = recs.reborrow().get(i);
-        r.set_action("I");
+        r.set_action("I".into());
         let mut cols = r.init_columns(3);
         {
             let mut c = cols.reborrow().get(0);
-            c.set_name("id");
+            c.set_name("id".into());
             let id = i + 1;
             c.set_value(serde_json::to_string(&id).unwrap().as_bytes());
         }
         {
             let mut c = cols.reborrow().get(1);
-            c.set_name("msg");
+            c.set_name("msg".into());
             let m = rand_str(16);
             c.set_value(serde_json::to_string(&m).unwrap().as_bytes());
         }
         {
             let mut c = cols.reborrow().get(2);
-            c.set_name("val");
+            c.set_name("val".into());
             let mut rng = rand::thread_rng();
             let v = rng.gen::<f64>();
             c.set_value(serde_json::to_string(&v).unwrap().as_bytes());

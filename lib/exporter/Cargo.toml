@@ -10,14 +10,14 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-chrono = { version = "0.4.26", features = ["serde"] }
-clap = { version = "4.4.2", features = ["derive", "env"] }
+chrono = { version = "0.4.31", features = ["serde"] }
+clap = { version = "4.4.3", features = ["derive", "env"] }
 futures = "0.3.28"
 humantime = "2.1.0"
 log = "0.4.1"
-serde = "1.0.183"
+serde = "1.0.188"
 sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "chrono"] }
 stderrlog = "0.5.4"
-thiserror = "1.0.47"
+thiserror = "1.0.48"
 tokio = { version = "1.32.0", features = ["net", "macros", "rt", "rt-multi-thread"] }
 tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }

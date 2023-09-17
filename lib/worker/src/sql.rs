@@ -10,8 +10,8 @@ pub fn schema_to_table_create(
     let mut pks = String::new();
 
     for (i, column) in columns.iter().enumerate() {
-        let cname = column.get_name()?;
-        let ctype = column.get_type()?;
+        let cname = column.get_name()?.to_string()?;
+        let ctype = column.get_type()?.to_string()?;
         let mut col = format!("{cname} {ctype}");
 
         if !column.get_is_nullable() {
@@ -56,7 +56,8 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
 
     let mut inserts: Vec<String> = Vec::new();
     for record in records {
-        let action = record.get_action()?;
+        let action = record.get_action()?.to_string()?;
+        let action = action.as_str();
         match action {
             "I" => {}
             _ => {
@@ -69,7 +70,7 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
         let mut vals = String::new();
         let columns = record.get_columns()?;
         for (i, column) in columns.iter().enumerate() {
-            let cname = column.get_name()?;
+            let cname = column.get_name()?.to_string()?;
             let value: serde_json::Value = serde_json::from_slice(column.get_value()?)
                 .map_err(|e| capnp::Error::failed(e.to_string()))?;
             if i == 0 {

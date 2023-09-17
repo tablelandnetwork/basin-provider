@@ -62,16 +62,13 @@ jobs:
       - name: Start CockroachDB
         run: cockroach start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=localhost --background
 
-#      - name: Setup upterm session
-#        uses: lhotari/action-upterm@v1
-
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all
         env:
-          EXPORT_SINK: ${{ secrets.EXPORT_SINK }}
+          EXPORT_BUCKET: ${{ secrets.EXPORT_BUCKET }}
           EXPORT_CREDENTIALS: ${{ secrets.EXPORT_CREDENTIALS }}
           EXPORT_INTERVAL: 5s
           DATABASE_HOST: localhost:26257

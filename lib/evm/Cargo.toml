@@ -11,8 +11,8 @@ version = { workspace = true }
 
 [dependencies]
 async-trait = "0.1.65"
-capnp = "0.17.2"
-ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet", features = ["abigen", "rustls", "ws"] }
+capnp = "0.18.1"
+ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet", features = ["abigen", "rustls"] }
 serde = "1.0.183"
 thiserror = "1.0.47"
 tokio = { version = "1.32.0", features = ["full"] }
