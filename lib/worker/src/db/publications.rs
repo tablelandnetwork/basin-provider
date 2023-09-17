@@ -15,8 +15,10 @@ pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Resu
     .await?;
 
     // Create schema for the namespace
-    let schema_stmt = format!("CREATE SCHEMA IF NOT EXISTS {ns}");
-    Ok(sqlx::query(&schema_stmt).execute(pool).await.map(|_| ())?)
+    sqlx::query(&format!("CREATE SCHEMA IF NOT EXISTS {ns}"))
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 /// Returns whether or not the namespace is owned by `owner`.
@@ -30,9 +32,8 @@ pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> Re
 }
 
 /// Creates a data table and scheduled changefeed for pub.
-pub async fn pub_table_create(pool: &PgPool, table_stmt: &str, cf_stmt: &str) -> Result<()> {
-    sqlx::query(table_stmt).execute(pool).await.map(|_| ())?;
-    sqlx::query(cf_stmt).execute(pool).await.map(|_| ())?;
+pub async fn pub_table_create(pool: &PgPool, table_stmt: &str) -> Result<()> {
+    sqlx::query(table_stmt).execute(pool).await?;
     Ok(())
 }
 
@@ -40,13 +41,13 @@ pub async fn pub_table_create(pool: &PgPool, table_stmt: &str, cf_stmt: &str) ->
 pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<()> {
     let mut txn = pool.begin().await?;
     for s in stmts {
-        txn_query(&mut txn, &s).await?;
+        txn_execute(&mut txn, &s).await?;
     }
-    Ok(txn.commit().await.map(|_| ())?)
+    Ok(txn.commit().await?)
 }
 
 /// Runs sqlx query within a database transaction.
-async fn txn_query(
+async fn txn_execute(
     txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     stmt: &str,
 ) -> sqlx::Result<PgQueryResult> {

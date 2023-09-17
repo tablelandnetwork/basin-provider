@@ -14,8 +14,7 @@ pub fn schema_to_table_create(
         let ctype = column.get_type()?;
         let mut col = format!("{cname} {ctype}");
 
-        let is_nullable = column.get_is_nullable();
-        if is_nullable {
+        if !column.get_is_nullable() {
             col = format!("{col} NOT NULL");
         }
         let is_pk = column.get_is_part_of_primary_key();
@@ -32,10 +31,21 @@ pub fn schema_to_table_create(
             }
         }
     }
+
     if !pks.is_empty() {
         cols = format!("{cols},PRIMARY KEY ({pks})");
     }
-    Ok(format!("CREATE TABLE IF NOT EXISTS {pub_name} ({cols})",))
+
+    if cols.is_empty() {
+        return Err(capnp::Error::failed(
+            "schema must have at least one column".into(),
+        ));
+    }
+    cols = format!("__basin_created TIMESTAMP DEFAULT now(),{cols}");
+
+    Ok(format!(
+        "CREATE TABLE IF NOT EXISTS {pub_name} ({cols},INDEX (__basin_created))",
+    ))
 }
 
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
@@ -70,15 +80,17 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
                 vals = format!("{vals},{value}");
             }
         }
-        inserts.push(format!("INSERT INTO {pub_name} ({cols}) VALUES({vals})").replace('\"', "'"));
+        if !(cols.is_empty() || vals.is_empty()) {
+            inserts
+                .push(format!("INSERT INTO {pub_name} ({cols}) VALUES({vals})").replace('\"', "'"));
+        }
     }
-    Ok(inserts)
-}
 
-/// Returns a SQL scheduled changefeed create statement.
-pub fn scheduled_changefeed_create(pub_name: String, cf_sink: String) -> capnp::Result<String> {
-    let schedule = format!("{}_schedule", pub_name.replace(".", "_"));
-    Ok(format!(
-        "CREATE SCHEDULE IF NOT EXISTS {schedule} FOR CHANGEFEED {pub_name} INTO '{cf_sink}' WITH full_table_name, format=parquet RECURRING '0 0 * * *' WITH SCHEDULE OPTIONS first_run=now, on_execution_failure=reschedule, on_previous_running=wait",
-    ))
+    if inserts.len() > 0 {
+        Ok(inserts)
+    } else {
+        Err(capnp::Error::failed(
+            "transaction must have at least one record".into(),
+        ))
+    }
 }

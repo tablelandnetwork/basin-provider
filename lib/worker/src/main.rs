@@ -1,14 +1,11 @@
-mod crypto;
-mod db;
-mod http;
-mod rpc;
-mod sql;
-
 use basin_evm::{testing::MockClient, BasinClient};
+use basin_worker::{db, http, rpc};
 use clap::error::ErrorKind;
-use clap::{CommandFactory, Parser, ValueEnum};
-use ethers::signers::LocalWallet;
-use ethers::types::{Address, Chain};
+use clap::{arg, CommandFactory, Parser, ValueEnum};
+use ethers::{
+    signers::LocalWallet,
+    types::{Address, Chain},
+};
 use log::info;
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
@@ -42,10 +39,6 @@ struct Cli {
     /// Postgres-style database URL
     #[arg(long, env)]
     database_url: String,
-
-    /// CockroachDB changefeed sink
-    #[arg(long, env)]
-    changefeed_sink: String,
 
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
@@ -90,21 +83,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .run(args.bind_health_address);
     tokio::spawn(async {
-        info!("Basin Health API started");
+        info!("health API started");
         warp_server.await
     });
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
+    db::setup(pg_pool.clone(), &args.database_url).await?;
+
+    let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
+
     match args.evm_type {
-        EvmType::Mem => {
-            rpc::listen(
-                args.bind_address,
-                MockClient::new().await?,
-                pg_pool,
-                args.changefeed_sink,
-            )
-            .await
-        }
+        EvmType::Mem => rpc::listen(MockClient::new().await?, pg_pool, listener).await,
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -173,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(args.bind_address, evm_client, pg_pool, args.changefeed_sink).await
+            rpc::listen(evm_client, pg_pool, listener).await
         }
     }
 }

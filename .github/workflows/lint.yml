@@ -1,14 +1,14 @@
 name: Lint
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
 
-defaults:
-  run:
-    shell: bash
-
-env:
-  CLIPPY_PARAMS: -W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::cargo
+concurrency:
+  group: lint-${{github.ref}}
+  cancel-in-progress: true
 
 jobs:
   clippy:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@master
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -35,4 +35,4 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --no-deps --all-features -- ${{ env.CLIPPY_PARAMS }}
+          args: --no-deps --all-features -- -W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::cargo

@@ -8,10 +8,9 @@ use ethers::{
     providers::{Http, Provider},
     signers::{LocalWallet, Signer},
     types::Address,
-    utils::AnvilInstance,
+    utils::{keccak256, AnvilInstance},
 };
 use std::{sync::Arc, time::Duration};
-use tiny_keccak::{Hasher, Keccak};
 
 #[derive(Clone)]
 pub struct MockClient {
@@ -64,14 +63,6 @@ impl EVMClient for MockClient {
             .unwrap();
         Ok(())
     }
-}
-
-fn keccak256(bytes: &[u8]) -> [u8; 32] {
-    let mut output = [0u8; 32];
-    let mut hasher = Keccak::v256();
-    hasher.update(bytes);
-    hasher.finalize(&mut output);
-    output
 }
 
 #[cfg(test)]
