@@ -18,8 +18,8 @@ basin_evm = { path = "../evm" }
 basin_protocol = { path = "../protocol" }
 capnp = "0.18.1"
 capnp-rpc = "0.18.0"
-clap = { version = "4.4.2", features = ["derive", "env"] }
 chrono = "0.4.31"
+clap = { version = "4.4.2", features = ["derive", "env"] }
 ethers = { git = "https://github.com/avichalp/ethers-rs.git", branch = "avichalp/calibrationnet", features = ["abigen", "rustls", "ws"] }
 futures = "0.3.28"
 google-cloud-auth = "0.12.0"
