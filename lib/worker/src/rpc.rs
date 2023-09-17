@@ -181,7 +181,7 @@ impl publications::callback::Server for UploadCallback {
         }
         let chunk_len = chunk.len() as u64;
         let first_byte = self.size;
-        self.size = self.size + chunk_len;
+        self.size += chunk_len;
         let last_byte = self.size - 1;
         let total_size = if chunk_len < 8 * 1024 * 1024 {
             // If this is the last chunk, we can specify the total size

@@ -22,7 +22,7 @@ pub fn schema_to_table_create(
         if i == 0 {
             cols = col;
             if is_pk {
-                pks = cname.into();
+                pks = cname;
             }
         } else {
             cols = format!("{cols},{col}");
@@ -74,7 +74,7 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
             let value: serde_json::Value = serde_json::from_slice(column.get_value()?)
                 .map_err(|e| capnp::Error::failed(e.to_string()))?;
             if i == 0 {
-                cols = cname.into();
+                cols = cname;
                 vals = value.to_string();
             } else {
                 cols = format!("{cols},{cname}");
@@ -87,7 +87,7 @@ pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<V
         }
     }
 
-    if inserts.len() > 0 {
+    if !inserts.is_empty() {
         Ok(inserts)
     } else {
         Err(capnp::Error::failed(
