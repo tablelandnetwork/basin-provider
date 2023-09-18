@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y capnproto libcapnp-dev
 
       - name: Run clippy
-        uses: actions-rs-plus/clippy-check@v2
+        uses: actions-rs-plus/clippy-check@3ecc8072141c0456e374f401a8c03269194cbc83
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --no-deps --all-features -- -Dwarnings

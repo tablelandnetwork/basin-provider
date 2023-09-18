@@ -9,7 +9,7 @@ pub async fn namespace_create(pool: &PgPool, ns: &str, owner: Address) -> Result
     // Insert a new namespace for owner
     let insert = sqlx::query!(
         "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
-        ns.clone(),
+        ns,
         owner.as_bytes()
     )
     .execute(pool)
