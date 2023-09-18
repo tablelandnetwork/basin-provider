@@ -136,7 +136,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let p = self.pg_pool.clone();
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
-            if crate::db::namespace_exists(&p, &ns).await? {
+            if !crate::db::namespace_exists(&p, &ns).await? {
                 return Err(Error::failed("namespace not found".into()));
             }
 
