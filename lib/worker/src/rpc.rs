@@ -118,12 +118,16 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if rel.is_empty() {
             return Promise::err(Error::failed("relation is required".into()));
         }
+        let size = args.get_size();
+        if size == 0 {
+            return Promise::err(Error::failed("size is required".into()));
+        }
         let filename = format!(
             "{ns}/{rel}/{}.parquet",
             chrono::Utc::now().timestamp_micros()
         );
 
-        println!("publication upload {filename} started");
+        info!("publication upload {filename} started");
 
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
@@ -143,7 +147,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             results
                 .get()
                 .set_callback(capnp_rpc::new_client(UploadCallback::new(
-                    filename, uploader,
+                    filename, size, uploader,
                 )));
             Ok(())
         })
@@ -152,17 +156,19 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
 /// RPC service wrapper for publication uploads.
 struct UploadCallback {
-    filename: String,
+    file_name: String,
+    file_size: u64,
     gcs_client: ResumableUploadClient,
-    size: u64,
+    received: u64,
 }
 
 impl UploadCallback {
-    fn new(filename: String, gcs_client: ResumableUploadClient) -> Self {
+    fn new(file_name: String, file_size: u64, gcs_client: ResumableUploadClient) -> Self {
         Self {
-            filename,
+            file_name,
+            file_size,
             gcs_client,
-            size: 0,
+            received: 0,
         }
     }
 }
@@ -180,24 +186,19 @@ impl publications::callback::Server for UploadCallback {
             return Promise::err(Error::failed("received empty chunk".into()));
         }
         let chunk_len = chunk.len() as u64;
-        let first_byte = self.size;
-        self.size += chunk_len;
-        let last_byte = self.size - 1;
-        let total_size = if chunk_len < 8 * 1024 * 1024 {
-            // fixme: If this is the last chunk, we can specify the total size but this won't work if last chunk = chunk size :/
-            Some(self.size)
-        } else {
-            None
-        };
+        let first_byte = self.received;
+        self.received += chunk_len;
+        let last_byte = self.received - 1;
+        let total_size = Some(self.file_size);
         let chunk_size = ChunkSize::new(first_byte, last_byte, total_size);
 
-        println!(
+        debug!(
             "publication upload {} progress: fb={}; lb={}; total={:?}",
-            self.filename, first_byte, last_byte, total_size
+            self.file_name, first_byte, last_byte, total_size
         );
 
         let c = self.gcs_client.clone();
-        let s = self.size;
+        let s = self.received;
         Promise::from_future(async move {
             let result = c
                 .upload_multiple_chunk(chunk, &chunk_size)
@@ -223,7 +224,7 @@ impl publications::callback::Server for UploadCallback {
             return Promise::err(Error::failed("signature is required".into()));
         }
 
-        println!("publication upload {} finished", self.filename);
+        info!("publication upload {} finished", self.file_name);
 
         Promise::ok(())
     }

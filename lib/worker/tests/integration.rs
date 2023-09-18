@@ -203,27 +203,26 @@ async fn upload_publication_works() {
             }
             request.send().promise.await.unwrap();
 
+            let size = 16 * 1024 * 1024 + 256;
             let mut request = client.upload_request();
             request.get().set_ns(ns.as_str().into());
             request.get().set_rel(rel.as_str().into());
+            request.get().set_size(size as u64);
 
             let callback = request.send().pipeline.get_callback();
 
-            let mut reader = rand_file(16 * 1024 * 1024 + 256).await;
-            let mut buffer = vec![0u8; 8 * 1024 * 1024];
+            let mut reader = rand_file(size).await;
+            let mut buffer = vec![0u8; 1024 * 1024];
             loop {
                 let n = reader.read(&mut buffer).await.unwrap();
                 if n == 0 {
                     break;
                 }
                 let c = &buffer[..n];
-                println!("chunk {}", c.len());
                 let mut write_request = callback.write_request();
                 write_request.get().set_chunk(c);
                 write_request.send().promise.await.unwrap();
             }
-
-            println!("sending done");
 
             let mut done_request = callback.done_request();
             let mut sig = [0u8; 65];
