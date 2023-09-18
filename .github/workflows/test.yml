@@ -70,5 +70,5 @@ jobs:
         env:
           EXPORT_BUCKET: ${{ secrets.EXPORT_BUCKET }}
           EXPORT_CREDENTIALS: ${{ secrets.EXPORT_CREDENTIALS }}
-          EXPORT_INTERVAL: 5s
+          EXPORT_SCHEDULE: 1/5 * * * * *
           DATABASE_HOST: localhost:26257

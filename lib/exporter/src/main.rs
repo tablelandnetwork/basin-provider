@@ -1,7 +1,7 @@
 use basin_exporter::start;
 use clap::{arg, Parser};
 use sqlx::postgres::PgPool;
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 use stderrlog::Timestamp;
 
 /// Command line args
@@ -16,9 +16,9 @@ struct Cli {
     #[arg(long, env)]
     export_credentials: String,
 
-    /// Parquet export interval
-    #[arg(long, env, value_parser = parse_duration, default_value = "24h")]
-    export_interval: Duration,
+    /// Parquet export crontab schedule
+    #[arg(long, env, default_value = "0 0 0 * * *")]
+    export_schedule: String,
 
     /// Postgres-style database URL
     #[arg(long, env)]
@@ -41,10 +41,6 @@ struct Cli {
     quiet: bool,
 }
 
-fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
-    arg.parse::<humantime::Duration>().map(Into::into)
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
@@ -61,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pg_pool.clone(),
         args.export_bucket,
         args.export_credentials,
-        args.export_interval,
+        &args.export_schedule,
     )
     .await?;
 

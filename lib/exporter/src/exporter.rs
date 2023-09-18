@@ -1,8 +1,8 @@
 use crate::errors::Result;
 use futures::TryStreamExt;
-use log::{info, warn};
+use log::{error, info};
 use sqlx::{postgres::PgPool, Executor, Row};
-use std::time::Duration;
+use std::error::Error;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 /// Internal type used during export.
@@ -19,16 +19,18 @@ pub async fn start(
     pg_pool: PgPool,
     bucket: String,
     creds: String,
-    interval: Duration,
-) -> Result<(), Box<dyn std::error::Error>> {
+    schedule: &str,
+) -> Result<(), Box<dyn Error>> {
     let mut scheduler = JobScheduler::new().await?;
-    let job = Job::new_repeated_async(interval, move |_uuid, _l| {
+    let job = Job::new_async(schedule, move |_uuid, _l| {
         let p = pg_pool.clone();
         let b = bucket.clone();
         let c = creds.clone();
         Box::pin(async move {
             info!("export job started");
-            export(&p, b, c).await.unwrap_or_else(|err| warn!("{err}"));
+            export(&p, &b, &c)
+                .await
+                .unwrap_or_else(|err| error!("{err}"));
             info!("export job ended");
         })
     })?;
@@ -45,7 +47,7 @@ pub async fn start(
 }
 
 /// Exports new publication data to sink.
-async fn export(pool: &PgPool, bucket: String, creds: String) -> Result<()> {
+async fn export(pool: &PgPool, bucket: &str, creds: &str) -> Result<()> {
     let now_res = sqlx::query("SELECT now()").fetch_one(pool).await?;
     let now: chrono::DateTime<chrono::Utc> = now_res.try_get("now")?;
 
@@ -60,6 +62,7 @@ async fn export(pool: &PgPool, bucket: String, creds: String) -> Result<()> {
                 .unwrap_or(chrono::DateTime::default()),
             rels: Vec::new(),
         };
+        // Get all tables in the namespace's schema
         let mut rels_res = sqlx::query("SELECT tablename FROM pg_tables WHERE schemaname=$1")
             .bind(ns.name.clone())
             .fetch(pool);
@@ -107,7 +110,6 @@ async fn export(pool: &PgPool, bucket: String, creds: String) -> Result<()> {
                 ns.id, ns.name
             );
 
-            // This conditional isn't needed, but as long as we're logging count, may as well use it
             if count > 0 {
                 let dest = format!(
                     "gs://{bucket}/{}/{rel}?AUTH=specified&CREDENTIALS={creds}",

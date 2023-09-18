@@ -42,20 +42,15 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
 
 async fn spawn_exporter(pool: PgPool) {
     spawn_local(async {
-        let interval = std::env::var("EXPORT_INTERVAL").unwrap();
         basin_exporter::start(
             pool,
             std::env::var("EXPORT_BUCKET").unwrap(),
             std::env::var("EXPORT_CREDENTIALS").unwrap(),
-            parse_duration(&interval).unwrap(),
+            &std::env::var("EXPORT_SCHEDULE").unwrap(),
         )
         .await
         .unwrap()
     });
-}
-
-fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
-    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 async fn get_client(worker_address: SocketAddr) -> publications::Client {
