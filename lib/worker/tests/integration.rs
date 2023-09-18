@@ -110,7 +110,15 @@ async fn create_publication_works() {
                 c.set_is_part_of_primary_key(true);
             }
 
-            request.send().promise.await.unwrap();
+            let exists = request
+                .send()
+                .promise
+                .await
+                .unwrap()
+                .get()
+                .unwrap()
+                .get_exists();
+            assert_eq!(exists, false);
 
             db::drop(pool.clone(), &db_url).await.unwrap();
         })
@@ -197,14 +205,6 @@ async fn upload_publication_works() {
             request.get().set_ns(ns.as_str().into());
             request.get().set_rel(rel.as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
-            let mut cols = request.get().init_schema().init_columns(1);
-            {
-                let mut c = cols.reborrow().get(0);
-                c.set_name("id".into());
-                c.set_type("SERIAL".into());
-                c.set_is_nullable(false);
-                c.set_is_part_of_primary_key(true);
-            }
             request.send().promise.await.unwrap();
 
             let size = 16 * 1024 * 1024 + 256;

@@ -34,7 +34,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
     fn create(
         &mut self,
         params: publications::CreateParams,
-        _: publications::CreateResults,
+        mut results: publications::CreateResults,
     ) -> Promise<(), Error> {
         let args = pry!(params.get());
         let ns = pry!(pry!(args.get_ns()).to_string());
@@ -51,17 +51,23 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         }
         let name = format!("{ns}.{rel}");
         let schema = pry!(args.get_schema());
-        let table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
+        let mut table_stmt = String::new();
+        if schema.has_columns() {
+            table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
+        }
 
         info!("publication {name} create for {owner}");
-        debug!("table statement: {table_stmt}");
 
         let p = self.pg_pool.clone();
         let e = self.evm_client.clone();
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
-            crate::db::namespace_create(&p, ns, owner).await?;
-            crate::db::pub_table_create(&p, &table_stmt).await?;
+            let created = crate::db::namespace_create(&p, ns, owner).await?;
+            if created && !table_stmt.is_empty() {
+                debug!("table statement: {table_stmt}");
+                crate::db::pub_table_create(&p, &table_stmt).await?;
+            }
+            results.get().set_exists(!created);
             Ok(())
         })
     }

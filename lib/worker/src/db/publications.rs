@@ -4,9 +4,10 @@ use sqlx::postgres::{PgPool, PgQueryResult};
 use sqlx::Row;
 
 /// Creates a namespace for owner.
-pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Result<()> {
+/// Returns whether or not the namespace was created.
+pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Result<bool> {
     // Insert a new namespace for owner
-    sqlx::query!(
+    let insert = sqlx::query!(
         "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
         ns.clone(),
         owner.as_bytes()
@@ -18,7 +19,8 @@ pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Resu
     sqlx::query(&format!("CREATE SCHEMA IF NOT EXISTS {ns}"))
         .execute(pool)
         .await?;
-    Ok(())
+
+    Ok(insert.rows_affected() != 0)
 }
 
 /// Returns whether or not the namespace is owned by `owner`.
