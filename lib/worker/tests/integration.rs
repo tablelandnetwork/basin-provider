@@ -4,16 +4,18 @@ use basin_worker::{db, gcs::GcsClient, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
-    core::rand,
+    core::rand::{thread_rng, Rng, RngCore},
     signers::{LocalWallet, Signer},
     utils::keccak256,
 };
 use futures::AsyncReadExt;
-use rand::{thread_rng, Rng};
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
 use std::{net::SocketAddr, time::Duration};
 use tokio::{
+    fs::File,
+    io::{AsyncReadExt as _, AsyncWriteExt},
+    io::{BufReader, BufWriter},
     task::{spawn_local, LocalSet},
     time::sleep,
 };
@@ -171,6 +173,69 @@ async fn push_publication_works() {
         .await;
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn upload_publication_works() {
+    let local = LocalSet::new();
+    local
+        .run_until(async {
+            let db_name = rand_str(8);
+            let (pool, db_url) = get_pg_pool(db_name).await;
+            db::setup(pool.clone(), &db_url).await.unwrap();
+
+            let worker_address = spawn_worker(pool.clone()).await;
+            let client = get_client(worker_address).await;
+
+            let wallet = LocalWallet::new(&mut thread_rng());
+            let ns = rand_str(12);
+            let rel = rand_str(12);
+
+            let mut request = client.create_request();
+            request.get().set_ns(ns.as_str().into());
+            request.get().set_rel(rel.as_str().into());
+            request.get().set_owner(wallet.address().as_bytes());
+            let mut cols = request.get().init_schema().init_columns(1);
+            {
+                let mut c = cols.reborrow().get(0);
+                c.set_name("id".into());
+                c.set_type("SERIAL".into());
+                c.set_is_nullable(false);
+                c.set_is_part_of_primary_key(true);
+            }
+            request.send().promise.await.unwrap();
+
+            let mut request = client.upload_request();
+            request.get().set_ns(ns.as_str().into());
+            request.get().set_rel(rel.as_str().into());
+
+            let callback = request.send().pipeline.get_callback();
+
+            let mut reader = rand_file(16 * 1024 * 1024 + 256).await;
+            let mut buffer = vec![0u8; 8 * 1024 * 1024];
+            loop {
+                let n = reader.read(&mut buffer).await.unwrap();
+                if n == 0 {
+                    break;
+                }
+                let c = &buffer[..n];
+                println!("chunk {}", c.len());
+                let mut write_request = callback.write_request();
+                write_request.get().set_chunk(c);
+                write_request.send().promise.await.unwrap();
+            }
+
+            println!("sending done");
+
+            let mut done_request = callback.done_request();
+            let mut sig = [0u8; 65];
+            thread_rng().fill_bytes(&mut sig);
+            done_request.get().set_sig(&sig);
+            done_request.send().promise.await.unwrap();
+
+            db::drop(pool.clone(), &db_url).await.unwrap();
+        })
+        .await;
+}
+
 fn rand_records(
     req: &mut Request<publications::push_params::Owned, publications::push_results::Owned>,
     wallet: LocalWallet,
@@ -199,7 +264,7 @@ fn rand_records(
         {
             let mut c = cols.reborrow().get(2);
             c.set_name("val".into());
-            let mut rng = rand::thread_rng();
+            let mut rng = thread_rng();
             let v = rng.gen::<f64>();
             c.set_value(serde_json::to_string(&v).unwrap().as_bytes());
         }
@@ -225,4 +290,27 @@ fn rand_str(l: usize) -> String {
         })
         .collect();
     s.to_lowercase()
+}
+
+async fn rand_file(s: usize) -> BufReader<File> {
+    let p = format!("/tmp/{}", rand_str(8));
+    let f = File::create(&p).await.unwrap();
+    let mut writer = BufWriter::new(f);
+
+    let mut rng = thread_rng();
+    let mut buffer = [0u8; 1024];
+    let mut remaining_size = s;
+
+    while remaining_size > 0 {
+        let to_write = std::cmp::min(remaining_size, buffer.len());
+        let buffer = &mut buffer[..to_write];
+        rng.fill(buffer);
+        writer.write(buffer).await.unwrap();
+
+        remaining_size -= to_write;
+    }
+    writer.flush().await.unwrap();
+
+    let f = File::open(&p).await.unwrap();
+    BufReader::new(f)
 }

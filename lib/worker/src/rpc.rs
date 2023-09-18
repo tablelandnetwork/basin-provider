@@ -123,7 +123,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             chrono::Utc::now().timestamp_micros()
         );
 
-        info!("publication upload {filename} started");
+        println!("publication upload {filename} started");
 
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
@@ -184,14 +184,14 @@ impl publications::callback::Server for UploadCallback {
         self.size += chunk_len;
         let last_byte = self.size - 1;
         let total_size = if chunk_len < 8 * 1024 * 1024 {
-            // If this is the last chunk, we can specify the total size
+            // fixme: If this is the last chunk, we can specify the total size but this won't work if last chunk = chunk size :/
             Some(self.size)
         } else {
             None
         };
         let chunk_size = ChunkSize::new(first_byte, last_byte, total_size);
 
-        debug!(
+        println!(
             "publication upload {} progress: fb={}; lb={}; total={:?}",
             self.filename, first_byte, last_byte, total_size
         );
@@ -223,7 +223,7 @@ impl publications::callback::Server for UploadCallback {
             return Promise::err(Error::failed("signature is required".into()));
         }
 
-        info!("publication upload {} finished", self.filename);
+        println!("publication upload {} finished", self.filename);
 
         Promise::ok(())
     }
