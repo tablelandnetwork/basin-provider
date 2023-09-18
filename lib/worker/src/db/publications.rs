@@ -5,7 +5,7 @@ use sqlx::Row;
 
 /// Creates a namespace for owner.
 /// Returns whether or not the namespace was created.
-pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Result<bool> {
+pub async fn namespace_create(pool: &PgPool, ns: &str, owner: Address) -> Result<bool> {
     // Insert a new namespace for owner
     let insert = sqlx::query!(
         "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
@@ -23,8 +23,17 @@ pub async fn namespace_create(pool: &PgPool, ns: String, owner: Address) -> Resu
     Ok(insert.rows_affected() != 0)
 }
 
+/// Returns whether or not the namespace exists.
+pub async fn namespace_exists(pool: &PgPool, ns: &str) -> Result<bool> {
+    let res = sqlx::query("SELECT id FROM namespaces WHERE name=$1")
+        .bind(ns)
+        .fetch_one(pool)
+        .await?;
+    Ok(!res.is_empty())
+}
+
 /// Returns whether or not the namespace is owned by `owner`.
-pub async fn is_namespace_owner(pool: &PgPool, ns: String, owner: Address) -> Result<bool> {
+pub async fn is_namespace_owner(pool: &PgPool, ns: &str, owner: Address) -> Result<bool> {
     let res = sqlx::query("SELECT id FROM namespaces WHERE name=$1 AND owner=$2")
         .bind(ns)
         .bind(owner.as_bytes())

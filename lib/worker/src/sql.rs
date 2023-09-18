@@ -2,7 +2,7 @@ use basin_protocol::{tableschema, tx};
 
 /// Returns a SQL CREATE TABLE statement from a `tableschema::Reader`.
 pub fn schema_to_table_create(
-    pub_name: String,
+    pub_name: &str,
     schema: tableschema::Reader,
 ) -> capnp::Result<String> {
     let columns = schema.get_columns()?;
@@ -51,7 +51,7 @@ pub fn schema_to_table_create(
 /// Returns a SQL transaction statement that inserts records in a `tx::Reader`.
 /// Note: Instead of a SQL transaction, we could use a bulk insert. However, can
 /// we be sure that the columns will always match across records in a `tx::Reader`?
-pub fn tx_to_table_inserts(pub_name: String, txn: tx::Reader) -> capnp::Result<Vec<String>> {
+pub fn tx_to_table_inserts(pub_name: &str, txn: tx::Reader) -> capnp::Result<Vec<String>> {
     let records = txn.get_records()?;
 
     let mut inserts: Vec<String> = Vec::new();

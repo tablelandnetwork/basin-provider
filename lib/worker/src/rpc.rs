@@ -53,7 +53,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let schema = pry!(args.get_schema());
         let mut table_stmt = String::new();
         if schema.has_columns() {
-            table_stmt = pry!(crate::sql::schema_to_table_create(name.clone(), schema));
+            table_stmt = pry!(crate::sql::schema_to_table_create(&name, schema));
         }
 
         info!("publication {name} create for {owner}");
@@ -62,7 +62,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let e = self.evm_client.clone();
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
-            let created = crate::db::namespace_create(&p, ns, owner).await?;
+            let created = crate::db::namespace_create(&p, &ns, owner).await?;
             if created && !table_stmt.is_empty() {
                 debug!("table statement: {table_stmt}");
                 crate::db::pub_table_create(&p, &table_stmt).await?;
@@ -91,14 +91,14 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let tx = pry!(args.get_tx());
         let owner = pry!(crate::utils::recover_addr_from_tx(tx, sig));
         let name = format!("{ns}.{rel}");
-        let insert_stmt = pry!(crate::sql::tx_to_table_inserts(name.clone(), tx));
+        let insert_stmt = pry!(crate::sql::tx_to_table_inserts(&name, tx));
 
         info!("publication {name} push for {owner}");
         debug!("insert statements: {:?}", insert_stmt);
 
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            if crate::db::is_namespace_owner(&p, ns, owner).await? {
+            if crate::db::is_namespace_owner(&p, &ns, owner).await? {
                 crate::db::pub_table_insert(&p, insert_stmt).await?;
                 Ok(())
             } else {
@@ -136,6 +136,10 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let p = self.pg_pool.clone();
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
+            if crate::db::namespace_exists(&p, &ns).await? {
+                return Err(Error::failed("namespace not found".into()));
+            }
+
             let upload_type = UploadType::Simple(Media::new(filename.clone()));
             let uploader = c
                 .inner
@@ -234,7 +238,7 @@ impl publications::callback::Server for UploadCallback {
         let n = self.ns.clone();
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            if crate::db::is_namespace_owner(&p, n, owner).await? {
+            if crate::db::is_namespace_owner(&p, &n, owner).await? {
                 Ok(())
             } else {
                 // fixme: delete uploaded file?
