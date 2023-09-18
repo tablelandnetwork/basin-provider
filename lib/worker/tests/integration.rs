@@ -4,7 +4,7 @@ use basin_worker::{db, gcs::GcsClient, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
-    core::rand::{thread_rng, Rng, RngCore},
+    core::rand::{thread_rng, Rng},
     signers::{LocalWallet, Signer},
     utils::keccak256,
 };
@@ -12,6 +12,7 @@ use futures::AsyncReadExt;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
 use std::{net::SocketAddr, time::Duration};
+use tiny_keccak::{Hasher, Keccak};
 use tokio::{
     fs::File,
     io::{AsyncReadExt as _, AsyncWriteExt},
@@ -186,6 +187,9 @@ async fn upload_publication_works() {
             let client = get_client(worker_address).await;
 
             let wallet = LocalWallet::new(&mut thread_rng());
+            let secp = Secp256k1::new();
+            let pk = SecretKey::from_slice(&wallet.signer().to_bytes().to_vec()).unwrap();
+
             let ns = rand_str(12);
             let rel = rand_str(12);
 
@@ -212,22 +216,29 @@ async fn upload_publication_works() {
             let callback = request.send().pipeline.get_callback();
 
             let mut reader = rand_file(size).await;
-            let mut buffer = vec![0u8; 1024 * 1024];
+            let mut hasher = Keccak::v256();
+            let mut buffer = vec![0u8; 8 * 1024 * 1024];
             loop {
                 let n = reader.read(&mut buffer).await.unwrap();
                 if n == 0 {
                     break;
                 }
                 let c = &buffer[..n];
+                hasher.update(c);
                 let mut write_request = callback.write_request();
                 write_request.get().set_chunk(c);
                 write_request.send().promise.await.unwrap();
             }
 
             let mut done_request = callback.done_request();
-            let mut sig = [0u8; 65];
-            thread_rng().fill_bytes(&mut sig);
-            done_request.get().set_sig(&sig);
+            let mut output = [0u8; 32];
+            hasher.finalize(&mut output);
+            let msg = Message::from_slice(&output).unwrap();
+            let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();
+            let mut sigb = Vec::with_capacity(65);
+            sigb.extend_from_slice(&sig);
+            sigb.push(rid.to_i32() as u8);
+            done_request.get().set_sig(&sigb);
             done_request.send().promise.await.unwrap();
 
             db::drop(pool.clone(), &db_url).await.unwrap();
@@ -297,7 +308,7 @@ async fn rand_file(s: usize) -> BufReader<File> {
     let mut writer = BufWriter::new(f);
 
     let mut rng = thread_rng();
-    let mut buffer = [0u8; 1024];
+    let mut buffer = vec![0u8; 1024 * 1024];
     let mut remaining_size = s;
 
     while remaining_size > 0 {

@@ -9,6 +9,7 @@ use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, Up
 use google_cloud_storage::http::resumable_upload_client::{ChunkSize, ResumableUploadClient};
 use log::{debug, info};
 use sqlx::postgres::PgPool;
+use tiny_keccak::{Hasher, Keccak};
 use tokio::net::TcpListener;
 
 /// RPC service wrapper for publications.
@@ -81,11 +82,8 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             return Promise::err(Error::failed("relation is required".into()));
         }
         let sig = pry!(args.get_sig());
-        if sig.is_empty() {
-            return Promise::err(Error::failed("signature is required".into()));
-        }
         let tx = pry!(args.get_tx());
-        let owner = pry!(crate::utils::recover_addr(tx, sig));
+        let owner = pry!(crate::utils::recover_addr_from_tx(tx, sig));
         let name = format!("{ns}.{rel}");
         let insert_stmt = pry!(crate::sql::tx_to_table_inserts(name.clone(), tx));
 
@@ -129,6 +127,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
         info!("publication upload {filename} started");
 
+        let p = self.pg_pool.clone();
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
             let upload_type = UploadType::Simple(Media::new(filename.clone()));
@@ -146,9 +145,15 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             results
                 .get()
-                .set_callback(capnp_rpc::new_client(UploadCallback::new(
-                    filename, size, uploader,
-                )));
+                .set_callback(capnp_rpc::new_client(UploadCallback {
+                    ns,
+                    pg_pool: p,
+                    gcs_client: uploader,
+                    fname: filename,
+                    fsize: size,
+                    received: 0,
+                    hasher: Keccak::v256(),
+                }));
             Ok(())
         })
     }
@@ -156,25 +161,16 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
 /// RPC service wrapper for publication uploads.
 struct UploadCallback {
-    file_name: String,
-    file_size: u64,
+    ns: String,
+    pg_pool: PgPool,
     gcs_client: ResumableUploadClient,
+    fname: String,
+    fsize: u64,
     received: u64,
-}
-
-impl UploadCallback {
-    fn new(file_name: String, file_size: u64, gcs_client: ResumableUploadClient) -> Self {
-        Self {
-            file_name,
-            file_size,
-            gcs_client,
-            received: 0,
-        }
-    }
+    hasher: Keccak,
 }
 
 impl publications::callback::Server for UploadCallback {
-    // fixme: build hash
     fn write(
         &mut self,
         params: publications::callback::WriteParams,
@@ -189,12 +185,14 @@ impl publications::callback::Server for UploadCallback {
         let first_byte = self.received;
         self.received += chunk_len;
         let last_byte = self.received - 1;
-        let total_size = Some(self.file_size);
+        let total_size = Some(self.fsize);
         let chunk_size = ChunkSize::new(first_byte, last_byte, total_size);
 
+        self.hasher.update(&chunk);
+
         debug!(
-            "publication upload {} progress: fb={}; lb={}; total={:?}",
-            self.file_name, first_byte, last_byte, total_size
+            "processing: fb={}; lb={}; total={:?}",
+            first_byte, last_byte, total_size
         );
 
         let c = self.gcs_client.clone();
@@ -205,14 +203,12 @@ impl publications::callback::Server for UploadCallback {
                 .await
                 .map_err(|e| Error::failed(e.to_string()))?;
 
-            println!("total uploaded: {}; upload status: {:?}", s, result);
+            debug!("uploaded: {}; status: {:?}", s, result);
 
             Ok(())
         })
     }
 
-    // fixme: check ns owner
-    // fixme: check signature
     fn done(
         &mut self,
         params: publications::callback::DoneParams,
@@ -220,13 +216,25 @@ impl publications::callback::Server for UploadCallback {
     ) -> Promise<(), Error> {
         let args = pry!(params.get());
         let sig = pry!(args.get_sig());
-        if sig.is_empty() {
-            return Promise::err(Error::failed("signature is required".into()));
+        if sig.len() != 65 {
+            return Promise::err(Error::failed("signature must be 65 bytes".into()));
         }
+        let mut output = [0u8; 32];
+        self.hasher.clone().finalize(&mut output);
+        let owner = pry!(crate::crypto::recover(&output, &sig[..64], sig[64] as i32));
 
-        info!("publication upload {} finished", self.file_name);
+        debug!("publication upload {} finished for {}", self.fname, owner);
 
-        Promise::ok(())
+        let n = self.ns.clone();
+        let p = self.pg_pool.clone();
+        Promise::from_future(async move {
+            if crate::db::is_namespace_owner(&p, n, owner).await? {
+                Ok(())
+            } else {
+                // fixme: delete uploaded file?
+                Err(Error::failed("unauthorized".into()))
+            }
+        })
     }
 }
 

@@ -3,13 +3,13 @@ use capnp::{data, message, private::units::BYTES_PER_WORD, Result};
 use ethers::{types::Address, utils::keccak256};
 
 /// Recovers address from tx:Reader
-pub fn recover_addr(tx: tx::Reader, sig: data::Reader) -> Result<Address> {
+pub fn recover_addr_from_tx(tx: tx::Reader, sig: data::Reader) -> Result<Address> {
     if sig.len() != 65 {
         return Err(capnp::Error::failed("signature must be 65 bytes".into()));
     }
     let payload = canonicalize_tx(tx)?;
     let hash = keccak256(payload.as_slice());
-    let addr = crate::crypto::recover(hash.as_slice(), &sig[..64], sig[64] as i32)?;
+    let addr = crate::crypto::recover(&hash, &sig[..64], sig[64] as i32)?;
     Ok(addr)
 }
 
