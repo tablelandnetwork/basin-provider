@@ -23,7 +23,7 @@ pub async fn drop(pool: PgPool, database_url: &str) -> Result<()> {
 
 /// Returns the database name from a Postgres connection string.
 fn database_name(conn_str: &str) -> Result<String> {
-    let url = Url::parse(conn_str).expect("Invalid connection string");
+    let url = Url::parse(conn_str)?;
     match url.path_segments().and_then(|segments| segments.last()) {
         Some(n) => Ok(n.to_owned()),
         None => Err(Error::Url(

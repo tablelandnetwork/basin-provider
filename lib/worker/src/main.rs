@@ -1,4 +1,5 @@
 use basin_evm::{testing::MockClient, BasinClient};
+use basin_worker::gcs::GcsClient;
 use basin_worker::{db, http, rpc};
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
@@ -35,6 +36,14 @@ struct Cli {
     /// EVM chain ID
     #[arg(long, env, default_value_t = 31337)]
     evm_chain_id: usize,
+
+    /// Parquet export GCS bucket
+    #[arg(long, env)]
+    export_bucket: String,
+
+    /// Parquet export sink credentials
+    #[arg(long, env)]
+    export_credentials: String,
 
     /// Postgres-style database URL
     #[arg(long, env)]
@@ -90,10 +99,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pg_pool = PgPool::connect(&args.database_url).await?;
     db::setup(pg_pool.clone(), &args.database_url).await?;
 
+    let gcs_client = GcsClient::new(args.export_bucket, args.export_credentials).await?;
+
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
 
     match args.evm_type {
-        EvmType::Mem => rpc::listen(MockClient::new().await?, pg_pool, listener).await,
+        EvmType::Mem => rpc::listen(MockClient::new().await?, pg_pool, gcs_client, listener).await,
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -162,7 +173,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(evm_client, pg_pool, listener).await
+            rpc::listen(evm_client, pg_pool, gcs_client, listener).await
         }
     }
 }

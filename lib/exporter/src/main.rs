@@ -1,28 +1,24 @@
 use basin_exporter::start;
 use clap::{arg, Parser};
 use sqlx::postgres::PgPool;
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 use stderrlog::Timestamp;
 
 /// Command line args
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// CockroachDB export sink
+    /// Parquet export GCS bucket
     #[arg(long, env)]
-    export_sink: String,
+    export_bucket: String,
 
-    /// CockroachDB export sink
-    #[arg(long, env, default_value = "specified")]
-    export_auth: String,
-
-    /// CockroachDB export sink
+    /// Parquet export sink credentials
     #[arg(long, env)]
     export_credentials: String,
 
-    /// CockroachDB export interval
-    #[arg(long, env, value_parser = parse_duration, default_value = "24h")]
-    export_interval: Duration,
+    /// Parquet export crontab schedule
+    #[arg(long, env, default_value = "0 0 0 * * *")]
+    export_schedule: String,
 
     /// Postgres-style database URL
     #[arg(long, env)]
@@ -45,10 +41,6 @@ struct Cli {
     quiet: bool,
 }
 
-fn parse_duration(arg: &str) -> Result<Duration, humantime::DurationError> {
-    arg.parse::<humantime::Duration>().map(Into::into)
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
@@ -63,10 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pg_pool = PgPool::connect(&args.database_url).await?;
     start(
         pg_pool.clone(),
-        args.export_sink,
-        args.export_auth,
+        args.export_bucket,
         args.export_credentials,
-        args.export_interval,
+        &args.export_schedule,
     )
     .await?;
 

@@ -1,8 +1,8 @@
 use crate::errors::Result;
 use futures::TryStreamExt;
-use log::{info, warn};
+use log::{error, info};
 use sqlx::{postgres::PgPool, Executor, Row};
-use std::time::Duration;
+use std::error::Error;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 /// Internal type used during export.
@@ -17,22 +17,20 @@ struct Ns {
 /// Starts a repeated job that exports new publication data to Basin Storage.
 pub async fn start(
     pg_pool: PgPool,
-    sink: String,
-    auth: String,
+    bucket: String,
     creds: String,
-    interval: Duration,
-) -> Result<(), Box<dyn std::error::Error>> {
+    schedule: &str,
+) -> Result<(), Box<dyn Error>> {
     let mut scheduler = JobScheduler::new().await?;
-    let job = Job::new_repeated_async(interval, move |_uuid, _l| {
+    let job = Job::new_async(schedule, move |_uuid, _l| {
         let p = pg_pool.clone();
-        let s = sink.clone();
-        let a = auth.clone();
+        let b = bucket.clone();
         let c = creds.clone();
         Box::pin(async move {
             info!("export job started");
-            export(&p, s, a, c)
+            export(&p, &b, &c)
                 .await
-                .unwrap_or_else(|err| warn!("{err}"));
+                .unwrap_or_else(|err| error!("{err}"));
             info!("export job ended");
         })
     })?;
@@ -49,7 +47,7 @@ pub async fn start(
 }
 
 /// Exports new publication data to sink.
-async fn export(pool: &PgPool, sink: String, auth: String, creds: String) -> Result<()> {
+async fn export(pool: &PgPool, bucket: &str, creds: &str) -> Result<()> {
     let now_res = sqlx::query("SELECT now()").fetch_one(pool).await?;
     let now: chrono::DateTime<chrono::Utc> = now_res.try_get("now")?;
 
@@ -64,6 +62,7 @@ async fn export(pool: &PgPool, sink: String, auth: String, creds: String) -> Res
                 .unwrap_or(chrono::DateTime::default()),
             rels: Vec::new(),
         };
+        // Get all tables in the namespace's schema
         let mut rels_res = sqlx::query("SELECT tablename FROM pg_tables WHERE schemaname=$1")
             .bind(ns.name.clone())
             .fetch(pool);
@@ -111,9 +110,11 @@ async fn export(pool: &PgPool, sink: String, auth: String, creds: String) -> Res
                 ns.id, ns.name
             );
 
-            // This conditional isn't needed, but as long as we're logging count, may as well use it
             if count > 0 {
-                let dest = format!("{sink}/{}/{rel}?AUTH={auth}&CREDENTIALS={creds}", ns.name);
+                let dest = format!(
+                    "gs://{bucket}/{}/{rel}?AUTH=specified&CREDENTIALS={creds}",
+                    ns.name
+                );
                 // Unprepared query required for EXPORT
                 pool.execute(
                     format!("EXPORT INTO PARQUET '{dest}' FROM {select} WHERE {window}").as_str(),
