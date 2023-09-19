@@ -9,14 +9,22 @@ readme = { workspace = true }
 repository = { workspace = true }
 version = { workspace = true }
 
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
+
 [dependencies]
-chrono = { version = "0.4.31", features = ["serde"] }
-clap = { version = "4.4.4", features = ["derive", "env"] }
-futures = "0.3.28"
-log = "0.4.1"
-serde = "1.0.188"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "chrono"] }
-stderrlog = "0.5.4"
-thiserror = "1.0.48"
-tokio = { version = "1.32.0", features = ["net", "macros", "rt", "rt-multi-thread"] }
-tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }
+chrono = { workspace = true, features = ["serde"] }
+clap = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true, features = ["chrono"] }
+stderrlog = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-cron-scheduler = { workspace = true }
+
+[target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
+version = "0.5.4"

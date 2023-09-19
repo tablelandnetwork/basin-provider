@@ -10,7 +10,7 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-capnp = "0.18.1"
+capnp = { workspace = true }
 
 [build-dependencies]
-capnpc = "0.18.0"
+capnpc = { workspace = true }

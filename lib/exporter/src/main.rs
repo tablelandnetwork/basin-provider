@@ -4,6 +4,10 @@ use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
 use stderrlog::Timestamp;
 
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 /// Command line args
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
