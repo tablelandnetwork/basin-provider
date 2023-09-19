@@ -3,6 +3,7 @@ services:
     image: basin_worker:latest
     depends_on:
       - crdb
+      - exporter
     ports:
       - 3000:3000
       - 3001:3001
