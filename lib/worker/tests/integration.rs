@@ -1,6 +1,7 @@
+use basin_common::db;
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{db, gcs::GcsClient, rpc, utils};
+use basin_worker::{gcs::GcsClient, rpc, utils};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -113,7 +114,7 @@ async fn create_publication_works() {
                 .get()
                 .unwrap()
                 .get_exists();
-            assert_eq!(exists, false);
+            assert!(!exists);
 
             db::drop(pool.clone(), &db_url).await.unwrap();
         })
@@ -191,7 +192,7 @@ async fn upload_publication_works() {
 
             let wallet = LocalWallet::new(&mut thread_rng());
             let secp = Secp256k1::new();
-            let pk = SecretKey::from_slice(&wallet.signer().to_bytes().to_vec()).unwrap();
+            let pk = SecretKey::from_slice(&wallet.signer().to_bytes()).unwrap();
 
             let ns = rand_str(12);
             let rel = rand_str(12);
@@ -247,7 +248,7 @@ fn rand_records(
     num: u32,
 ) {
     let secp = Secp256k1::new();
-    let pk = SecretKey::from_slice(&wallet.signer().to_bytes().to_vec()).unwrap();
+    let pk = SecretKey::from_slice(&wallet.signer().to_bytes()).unwrap();
 
     let mut recs = req.get().init_tx().init_records(num);
     for i in 0..num {
@@ -276,7 +277,7 @@ fn rand_records(
     }
 
     let tx = utils::canonicalize_tx(req.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
-    let hash = keccak256(&tx);
+    let hash = keccak256(tx);
     let msg = Message::from_slice(&hash).unwrap();
     let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();
     let mut sigb = Vec::with_capacity(65);
@@ -310,7 +311,7 @@ async fn rand_file(s: usize) -> BufReader<File> {
         let to_write = std::cmp::min(remaining_size, buffer.len());
         let buffer = &mut buffer[..to_write];
         rng.fill(buffer);
-        writer.write(buffer).await.unwrap();
+        _ = writer.write(buffer).await.unwrap();
 
         remaining_size -= to_write;
     }

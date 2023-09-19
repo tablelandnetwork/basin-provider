@@ -298,31 +298,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "basin_common"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "serde",
+ "sqlx",
+ "thiserror",
+ "url",
+ "warp",
+]
+
+[[package]]
 name = "basin_evm"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "capnp",
+ "basin_common",
  "ethers",
- "serde",
- "thiserror",
+ "tokio",
 ]
 
 [[package]]
 name = "basin_exporter"
 version = "0.1.0"
 dependencies = [
+ "basin_common",
  "chrono",
  "clap",
  "futures",
  "jemallocator",
  "log",
- "serde",
  "sqlx",
  "stderrlog",
- "thiserror",
  "tokio",
  "tokio-cron-scheduler",
+ "warp",
 ]
 
 [[package]]
@@ -341,6 +352,7 @@ dependencies = [
  "array-bytes",
  "backon",
  "base64 0.21.4",
+ "basin_common",
  "basin_evm",
  "basin_exporter",
  "basin_protocol",
@@ -359,7 +371,6 @@ dependencies = [
  "once_cell",
  "openssl",
  "secp256k1",
- "serde",
  "serde_json",
  "sqlx",
  "stderrlog",
@@ -367,7 +378,6 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "tokio-util",
- "url",
  "warp",
 ]
 

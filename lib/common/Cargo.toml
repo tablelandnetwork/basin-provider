@@ -1,8 +1,8 @@
 [package]
 authors = { workspace = true }
-description = "Wire protocol bindings for Tableland Basin"
+description = "Common lib for Tableland Basin"
 edition = { workspace = true }
-name = "basin_protocol"
+name = "basin_common"
 homepage = { workspace = true }
 license = { workspace = true }
 readme = { workspace = true }
@@ -10,7 +10,9 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
+serde = { workspace = true }
+sqlx = { workspace = true }
+url = { workspace = true }
 capnp = { workspace = true }
-
-[build-dependencies]
-capnpc = { workspace = true }
+thiserror = { workspace = true }
+warp = { workspace = true }

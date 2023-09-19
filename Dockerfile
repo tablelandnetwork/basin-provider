@@ -3,10 +3,11 @@
 ####################################################################################################
 ## Builder
 ####################################################################################################
-FROM rust:latest AS builder
+ARG RUST_VERSION=latest
+FROM rust:${RUST_VERSION} AS builder
 
 RUN rustup target add x86_64-unknown-linux-musl
-RUN apt update && apt install -y musl-tools musl-dev capnproto
+RUN apt update && apt install -y ca-certificates musl-tools musl-dev capnproto
 RUN update-ca-certificates
 
 # Create appuser
@@ -32,15 +33,17 @@ RUN cargo build --target x86_64-unknown-linux-musl --locked --release
 ## Final image
 ####################################################################################################
 FROM scratch
+ARG CRATE
 
 # Import from builder.
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 WORKDIR /app
 
 # Copy our build
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/basin_worker /bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/$CRATE /bin/app
 
 # Use an unprivileged user.
 USER basin:basin
@@ -48,5 +51,4 @@ USER basin:basin
 EXPOSE 3000
 EXPOSE 3001
 
-CMD ["/bin/basin_worker"]
-LABEL service=worker
+ENTRYPOINT ["/bin/app"]

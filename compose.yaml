@@ -1,4 +1,32 @@
 services:
+  worker:
+    image: basin_worker:latest
+    depends_on:
+      - crdb
+    ports:
+      - 3000:3000
+      - 3001:3001
+    command: >
+      --evm-wallet-pk=${EVM_WALLET_PK}
+      --evm-contract-address=${EVM_CONTRACT_ADDRESS}
+      --evm-provider-url=${EVM_PROVIDER_URL}
+      --evm-chain-id=${EVM_CHAIN_ID}
+      --export-bucket=${EXPORT_BUCKET}
+      --export-credentials=${EXPORT_CREDENTIALS}
+      --database-url=${DATABASE_URL}
+      -vvvvv
+  exporter:
+    image: basin_exporter:latest
+    depends_on:
+      - crdb
+    ports:
+      - 3002:3001
+    command: >
+      --export-bucket=${EXPORT_BUCKET}
+      --export-credentials=${EXPORT_CREDENTIALS}
+      --database-url=${DATABASE_URL}
+      --export-schedule="${EXPORT_SCHEDULE}"
+      -vvvvv
   crdb:
     image: cockroachdb/cockroach:v23.1.9
     ports:

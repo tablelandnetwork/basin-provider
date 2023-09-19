@@ -1,6 +1,6 @@
 [package]
 authors = { workspace = true }
-description = "Ingests publications to Basin"
+description = "Ingest daemon for Tableland Basin"
 edition = { workspace = true }
 name = "basin_worker"
 homepage = { workspace = true }
@@ -9,16 +9,12 @@ readme = { workspace = true }
 repository = { workspace = true }
 version = { workspace = true }
 
-[profile.release]
-codegen-units = 1
-lto = true
-strip = true
-
 [dependencies]
 anvil = { workspace = true }
 array-bytes = { workspace = true }
 backon = { workspace = true }
 base64 = { workspace = true }
+basin_common = { path = "../common" }
 basin_evm = { path = "../evm" }
 basin_protocol = { path = "../protocol" }
 capnp = { workspace = true }
@@ -35,7 +31,6 @@ log = { workspace = true }
 once_cell = { workspace = true }
 openssl = { workspace = true }
 secp256k1 = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 stderrlog = { workspace = true }
@@ -43,7 +38,6 @@ thiserror = { workspace = true }
 tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
-url = { workspace = true }
 warp = { workspace = true }
 
 [dev-dependencies]

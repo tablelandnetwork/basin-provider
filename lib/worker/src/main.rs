@@ -1,6 +1,7 @@
+use basin_common::{db, http};
 use basin_evm::{testing::MockClient, BasinClient};
 use basin_worker::gcs::GcsClient;
-use basin_worker::{db, http, rpc};
+use basin_worker::rpc;
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{

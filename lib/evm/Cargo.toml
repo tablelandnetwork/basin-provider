@@ -1,6 +1,6 @@
 [package]
 authors = { workspace = true }
-description = { workspace = true }
+description = "EVM bindings for Tableland Basin"
 edition = { workspace = true }
 name = "basin_evm"
 homepage = { workspace = true }
@@ -11,10 +11,11 @@ version = { workspace = true }
 
 [dependencies]
 async-trait = { workspace = true }
-capnp = { workspace = true }
+basin_common = { path = "../common" }
 ethers = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
 
 [build-dependencies]
 ethers = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

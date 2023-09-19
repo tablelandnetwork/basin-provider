@@ -1,4 +1,4 @@
-use crate::db::Result;
+use basin_common::errors::Result;
 use ethers::types::Address;
 use sqlx::postgres::{PgPool, PgQueryResult};
 use sqlx::Row;

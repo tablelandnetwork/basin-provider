@@ -1,6 +1,6 @@
 [package]
 authors = { workspace = true }
-description = "Exports publications to Basin Storage"
+description = "Parquet exporter daemon for Tableland Basin"
 edition = { workspace = true }
 name = "basin_exporter"
 homepage = { workspace = true }
@@ -9,22 +9,17 @@ readme = { workspace = true }
 repository = { workspace = true }
 version = { workspace = true }
 
-[profile.release]
-codegen-units = 1
-lto = true
-strip = true
-
 [dependencies]
+basin_common = { path = "../common" }
 chrono = { workspace = true, features = ["serde"] }
 clap = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true }
 sqlx = { workspace = true, features = ["chrono"] }
 stderrlog = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-cron-scheduler = { workspace = true }
+warp = { workspace = true }
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.4"

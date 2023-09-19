@@ -10,7 +10,7 @@ target/
 *.pdb
 
 # sqlx
-!/lib/worker/migrations/*.sql
+!/lib/common/migrations/*.sql
 
 # env
 .env
