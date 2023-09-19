@@ -1,3 +1,4 @@
+use basin_common::db;
 use basin_exporter::start;
 use clap::{arg, Parser};
 use log::info;
@@ -66,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
+    db::setup(pg_pool.clone(), &args.database_url).await?;
 
     start(
         pg_pool.clone(),
