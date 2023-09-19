@@ -20,7 +20,12 @@ test:
 	cargo test
 .PHONY: test
 
-images:
-	docker build --build-arg CRATE=basin_worker -t basin_worker:latest .
-	docker build --build-arg CRATE=basin_exporter -t basin_exporter:latest .
-.PHONY: images
+build-images:
+	docker build --build-arg CRATE=basin_worker -t textile/basin_worker:latest .
+	docker build --build-arg CRATE=basin_exporter -t textile/basin_exporter:latest .
+.PHONY: build-images
+
+push-images:
+	docker image push textile/basin_worker:latest
+	docker image push textile/basin_exporter:latest
+.PHONY: push-images
