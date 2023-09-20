@@ -24,10 +24,14 @@ test:
 
 build-images:
 	docker build --build-arg CRATE=basin_worker -t textile/basin_worker:${HEAD_SHORT} .
+	docker tag textile/basin_worker:${HEAD_SHORT} textile/basin_worker:latest
 	docker build --build-arg CRATE=basin_exporter -t textile/basin_exporter:${HEAD_SHORT} .
+	docker tag textile/basin_exporter:${HEAD_SHORT} textile/basin_exporter:latest
 .PHONY: build-images
 
 push-images:
 	docker image push textile/basin_worker:${HEAD_SHORT}
+	docker image push textile/basin_worker:latest
 	docker image push textile/basin_exporter:${HEAD_SHORT}
+	docker image push textile/basin_exporter:latest
 .PHONY: push-images
