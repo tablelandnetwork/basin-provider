@@ -1,3 +1,5 @@
+HEAD_SHORT ?= $(shell git rev-parse --short HEAD)
+
 lint:
 	cargo clippy --fix
 .PHONY: lint
@@ -21,11 +23,11 @@ test:
 .PHONY: test
 
 build-images:
-	docker build --build-arg CRATE=basin_worker -t textile/basin_worker:latest .
-	docker build --build-arg CRATE=basin_exporter -t textile/basin_exporter:latest .
+	docker build --build-arg CRATE=basin_worker -t textile/basin_worker:${HEAD_SHORT} .
+	docker build --build-arg CRATE=basin_exporter -t textile/basin_exporter:${HEAD_SHORT} .
 .PHONY: build-images
 
 push-images:
-	docker image push textile/basin_worker:latest
-	docker image push textile/basin_exporter:latest
+	docker image push textile/basin_worker:${HEAD_SHORT}
+	docker image push textile/basin_exporter:${HEAD_SHORT}
 .PHONY: push-images
