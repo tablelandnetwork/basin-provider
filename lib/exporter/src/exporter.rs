@@ -1,4 +1,4 @@
-use crate::errors::Result;
+use basin_common::errors::Result;
 use futures::TryStreamExt;
 use log::{error, info};
 use sqlx::{postgres::PgPool, Executor, Row};

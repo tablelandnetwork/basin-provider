@@ -1,13 +1,12 @@
 mod client;
 #[allow(clippy::all)]
 mod contract;
-mod errors;
 pub mod testing;
 
 use async_trait::async_trait;
+use basin_common::errors::Result;
 pub use client::BasinClient;
 use contract::BasinStorage as Contract;
-pub use errors::{Error, Result};
 use ethers::types::Address;
 
 // fixme: add methods for listing pubs, deals, etc.

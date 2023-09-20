@@ -1,6 +1,7 @@
+use basin_common::{db, http};
 use basin_evm::{testing::MockClient, BasinClient};
 use basin_worker::gcs::GcsClient;
-use basin_worker::{db, http, rpc};
+use basin_worker::rpc;
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{
@@ -12,6 +13,10 @@ use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
 use stderrlog::Timestamp;
 use warp::Filter;
+
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 /// Command line args
 #[derive(Parser, Debug)]

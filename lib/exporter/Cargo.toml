@@ -1,6 +1,6 @@
 [package]
 authors = { workspace = true }
-description = "Exports publications to Basin Storage"
+description = "Parquet exporter daemon for Tableland Basin"
 edition = { workspace = true }
 name = "basin_exporter"
 homepage = { workspace = true }
@@ -10,13 +10,16 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-chrono = { version = "0.4.31", features = ["serde"] }
-clap = { version = "4.4.4", features = ["derive", "env"] }
-futures = "0.3.28"
-log = "0.4.1"
-serde = "1.0.188"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "chrono"] }
-stderrlog = "0.5.4"
-thiserror = "1.0.48"
-tokio = { version = "1.32.0", features = ["net", "macros", "rt", "rt-multi-thread"] }
-tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }
+basin_common = { path = "../common" }
+chrono = { workspace = true, features = ["serde"] }
+clap = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+sqlx = { workspace = true, features = ["chrono"] }
+stderrlog = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-cron-scheduler = { workspace = true }
+warp = { workspace = true }
+
+[target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
+version = "0.5.4"

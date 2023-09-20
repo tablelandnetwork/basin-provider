@@ -1,4 +1,4 @@
-use crate::db::{Error, Result};
+use crate::errors::{Error, Result};
 use sqlx::PgPool;
 use url::Url;
 

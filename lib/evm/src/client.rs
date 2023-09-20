@@ -1,7 +1,6 @@
-use crate::Contract;
-use crate::EVMClient;
-use crate::{errors::Result, Error};
+use crate::{Contract, EVMClient};
 use async_trait::async_trait;
+use basin_common::errors::{Error, Result};
 use ethers::{
     middleware::SignerMiddleware,
     providers::{Http, Provider},

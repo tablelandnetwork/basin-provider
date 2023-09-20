@@ -1,8 +1,15 @@
+use basin_common::db;
 use basin_exporter::start;
 use clap::{arg, Parser};
+use log::info;
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
 use stderrlog::Timestamp;
+use warp::Filter;
+
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 /// Command line args
 #[derive(Parser, Debug)]
@@ -23,10 +30,6 @@ struct Cli {
     /// Postgres-style database URL
     #[arg(long, env)]
     database_url: String,
-
-    /// Host and port to bind the RPC API to
-    #[arg(long, env, default_value = "127.0.0.1:3000")]
-    bind_address: SocketAddr,
 
     /// Host and port to bind the Health API to
     #[arg(long, env, default_value = "127.0.0.1:3001")]
@@ -52,7 +55,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timestamp(Timestamp::Millisecond)
         .init()?;
 
+    let warp_server = warp::serve(
+        warp::path("health")
+            .map(warp::reply)
+            .recover(basin_common::http::handle_warp_rejection),
+    )
+    .run(args.bind_health_address);
+    tokio::spawn(async {
+        info!("health API started");
+        warp_server.await
+    });
+
     let pg_pool = PgPool::connect(&args.database_url).await?;
+    db::setup(pg_pool.clone(), &args.database_url).await?;
+
     start(
         pg_pool.clone(),
         args.export_bucket,

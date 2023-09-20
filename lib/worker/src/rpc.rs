@@ -1,4 +1,4 @@
-use crate::gcs::GcsClient;
+use crate::{crypto, db, gcs::GcsClient, sql, utils};
 use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
@@ -53,7 +53,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let schema = pry!(args.get_schema());
         let mut table_stmt = String::new();
         if schema.has_columns() {
-            table_stmt = pry!(crate::sql::schema_to_table_create(&name, schema));
+            table_stmt = pry!(sql::schema_to_table_create(&name, schema));
         }
 
         info!("publication {name} create for {owner}");
@@ -62,10 +62,10 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let e = self.evm_client.clone();
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
-            let created = crate::db::namespace_create(&p, &ns, owner).await?;
-            if created && !table_stmt.is_empty() {
+            let created = db::namespace_create(&p, &ns, owner).await?;
+            if !table_stmt.is_empty() {
                 debug!("table statement: {table_stmt}");
-                crate::db::pub_table_create(&p, &table_stmt).await?;
+                db::pub_table_create(&p, &table_stmt).await?;
             }
             results.get().set_exists(!created);
             Ok(())
@@ -89,17 +89,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         }
         let sig = pry!(args.get_sig());
         let tx = pry!(args.get_tx());
-        let owner = pry!(crate::utils::recover_addr_from_tx(tx, sig));
+        let owner = pry!(utils::recover_addr_from_tx(tx, sig));
         let name = format!("{ns}.{rel}");
-        let insert_stmt = pry!(crate::sql::tx_to_table_inserts(&name, tx));
+        let insert_stmt = pry!(sql::tx_to_table_inserts(&name, tx));
 
         info!("publication {name} push for {owner}");
         debug!("insert statements: {:?}", insert_stmt);
 
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            if crate::db::is_namespace_owner(&p, &ns, owner).await? {
-                crate::db::pub_table_insert(&p, insert_stmt).await?;
+            if db::is_namespace_owner(&p, &ns, owner).await? {
+                db::pub_table_insert(&p, insert_stmt).await?;
                 Ok(())
             } else {
                 Err(Error::failed("unauthorized".into()))
@@ -136,7 +136,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let p = self.pg_pool.clone();
         let c = self.gcs_client.clone();
         Promise::from_future(async move {
-            if !crate::db::namespace_exists(&p, &ns).await? {
+            if !db::namespace_exists(&p, &ns).await? {
                 return Err(Error::failed("namespace not found".into()));
             }
 
@@ -231,14 +231,14 @@ impl publications::callback::Server for UploadCallback {
         }
         let mut output = [0u8; 32];
         self.hasher.clone().finalize(&mut output);
-        let owner = pry!(crate::crypto::recover(&output, &sig[..64], sig[64] as i32));
+        let owner = pry!(crypto::recover(&output, &sig[..64], sig[64] as i32));
 
         debug!("publication upload {} finished for {}", self.fname, owner);
 
         let n = self.ns.clone();
         let p = self.pg_pool.clone();
         Promise::from_future(async move {
-            if crate::db::is_namespace_owner(&p, &n, owner).await? {
+            if db::is_namespace_owner(&p, &n, owner).await? {
                 Ok(())
             } else {
                 // fixme: delete uploaded file?

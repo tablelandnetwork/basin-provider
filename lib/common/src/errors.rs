@@ -12,6 +12,8 @@ pub enum Error {
     Migrate(sqlx::migrate::MigrateError),
     #[error("URL error: {0}")]
     Url(String),
+    #[error("EVM error: {0}")]
+    Evm(String),
 }
 
 impl From<sqlx::Error> for Error {
