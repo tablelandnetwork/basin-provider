@@ -17,4 +17,7 @@ pub trait EVMClient: Clone + Send {
 
     /// Add a new publication for owner.
     async fn add_pub(&self, owner: Address, name: &str) -> Result<()>;
+
+    // List publications from a specific owner.
+    async fn list_pub(&self, owner: Address) -> Result<Vec<String>>;
 }

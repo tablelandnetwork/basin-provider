@@ -167,6 +167,31 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             Ok(())
         })
     }
+
+    fn list(
+        &mut self,
+        params: publications::ListParams,
+        mut results: publications::ListResults,
+    ) -> Promise<(), Error> {
+        let args = pry!(params.get());
+        let owner = Address::from_slice(pry!(args.get_owner()));
+        if owner.is_zero() {
+            return Promise::err(Error::failed("owner is required".into()));
+        }
+
+        let e = self.evm_client.clone();
+        Promise::from_future(async move {
+            let publications = e.list_pub(owner).await?;
+
+            let mut publication_list = results.get().init_publications(publications.len() as u32);
+            for (i, p) in publications.iter().enumerate() {
+                let p_str: &str = &p;
+                publication_list.set(i as u32, p_str.into());
+            }
+
+            Ok(())
+        })
+    }
 }
 
 /// RPC service wrapper for publication uploads.
