@@ -185,7 +185,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let mut publication_list = results.get().init_publications(publications.len() as u32);
             for (i, p) in publications.iter().enumerate() {
-                let p_str: &str = &p;
+                let p_str: &str = p;
                 publication_list.set(i as u32, p_str.into());
             }
 
@@ -274,7 +274,7 @@ impl publications::callback::Server for UploadCallback {
 }
 
 /// Listens for RPC messages from Basin clients
-pub async fn listen<E: EVMClient>(
+pub async fn listen<E: EVMClient + 'static>(
     evm_client: E,
     pg_pool: PgPool,
     gcs_client: GcsClient,
