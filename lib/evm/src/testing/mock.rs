@@ -1,6 +1,6 @@
 use crate::{Contract, EVMClient};
 use async_trait::async_trait;
-use basin_common::errors::Result;
+use basin_common::errors::{Error, Result};
 use ethers::{
     core::utils::Anvil,
     middleware::SignerMiddleware,
@@ -62,6 +62,14 @@ impl EVMClient for MockClient {
             .unwrap();
         Ok(())
     }
+
+    async fn list_pub(&self, owner: Address) -> Result<Vec<String>, Error> {
+        self.contract
+            .pubs_of_owner(owner)
+            .call()
+            .await
+            .map_err(|e| Error::Evm(e.to_string()))
+    }
 }
 
 #[cfg(test)]
@@ -75,13 +83,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn add_pub_works() {
+    async fn add_and_list_pub_works() {
         let client = MockClient::new().await.unwrap();
         let owner = Address::random();
         let name = "foo.bar";
         client.add_pub(owner, name).await.unwrap();
 
-        let owner_pubs: Vec<String> = client.contract.pubs_of_owner(owner).call().await.unwrap();
+        let owner_pubs: Vec<String> = client.list_pub(owner).await.unwrap();
         assert_eq!(owner_pubs[0], name);
     }
 }

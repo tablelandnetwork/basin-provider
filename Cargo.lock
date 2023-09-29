@@ -555,9 +555,9 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7daec1a2a2129eeba1644b220b4647ec537b0b5d4bfd6876fcc5a540056b592"
+checksum = "fb9ac64500cc83ce4b9f8dafa78186aa008c8dea77a09b94cd307fd0cd5022a8"
 dependencies = [
  "camino",
  "cargo-platform",
@@ -1211,8 +1211,8 @@ dependencies = [
 
 [[package]]
 name = "ethers"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "ethers-addressbook",
  "ethers-contract",
@@ -1226,8 +1226,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-addressbook"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "ethers-core",
  "once_cell",
@@ -1237,8 +1237,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-contract"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "const-hex",
  "ethers-contract-abigen",
@@ -1255,8 +1255,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-contract-abigen"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1278,8 +1278,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-contract-derive"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1293,8 +1293,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-core"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "arrayvec",
  "bytes",
@@ -1322,8 +1322,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-etherscan"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "ethers-core",
  "reqwest",
@@ -1336,8 +1336,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-middleware"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1362,8 +1362,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-providers"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1398,8 +1398,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-signers"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "async-trait",
  "coins-bip32",
@@ -1416,8 +1416,8 @@ dependencies = [
 
 [[package]]
 name = "ethers-solc"
-version = "2.0.9"
-source = "git+https://github.com/avichalp/ethers-rs.git?branch=avichalp/calibrationnet#b22a67256eda823184b3761f425e50c22c4918bc"
+version = "2.0.10"
+source = "git+https://github.com/gakonst/ethers-rs.git#cdb7802c3764b091c6e40ee4150864762b0574fa"
 dependencies = [
  "cfg-if",
  "const-hex",
@@ -3075,7 +3075,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
 dependencies = [
  "once_cell",
- "toml_edit",
+ "toml_edit 0.19.14",
 ]
 
 [[package]]
@@ -4443,14 +4443,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.6"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17e963a819c331dcacd7ab957d80bc2b9a9c1e71c804826d2f283dd65306542"
+checksum = "c226a7bba6d859b63c92c4b4fe69c5b6b72d0cb897dbc8e6012298e6154cb56e"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit",
+ "toml_edit 0.20.0",
 ]
 
 [[package]]
@@ -4467,6 +4467,17 @@ name = "toml_edit"
 version = "0.19.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8123f27e969974a3dfba720fdb560be359f57b44302d280ba72e76a74480e8a"
+dependencies = [
+ "indexmap 2.0.0",
+ "toml_datetime",
+ "winnow",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ff63e60a958cefbb518ae1fd6566af80d9d4be430a33f3723dfc47d1d411d95"
 dependencies = [
  "indexmap 2.0.0",
  "serde",

@@ -46,4 +46,12 @@ impl EVMClient for BasinClient {
             .map_err(|e| Error::Evm(e.to_string()))?;
         Ok(())
     }
+
+    async fn list_pub(&self, owner: Address) -> Result<Vec<String>, Error> {
+        self.contract
+            .pubs_of_owner(owner)
+            .call()
+            .await
+            .map_err(|e| Error::Evm(e.to_string()))
+    }
 }

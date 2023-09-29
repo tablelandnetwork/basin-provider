@@ -9,4 +9,6 @@ interface Publications {
         write @0 (chunk :Data);
         done @1 (sig :Data);
     }
+
+    list @3 (owner :Data) -> (publications :List(Text));
 }
