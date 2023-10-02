@@ -11,4 +11,6 @@ interface Publications {
     }
 
     list @3 (owner :Data) -> (publications :List(Text));
+    deals @4 (ns :Text, rel :Text, limit :UInt32, offset :Text) -> (deals :List(import "./definitions.capnp" .DealInfo));
+    latestDeals @5 (ns :Text, rel :Text, n :UInt32) -> (deals :List(import "./definitions.capnp" .DealInfo));
 }

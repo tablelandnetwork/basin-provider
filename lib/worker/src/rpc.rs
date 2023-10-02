@@ -3,7 +3,7 @@ use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
 use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
-use ethers::types::Address;
+use ethers::types::{Address, U256};
 use futures::AsyncReadExt;
 use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
 use google_cloud_storage::http::resumable_upload_client::{ChunkSize, ResumableUploadClient};
@@ -185,8 +185,90 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let mut publication_list = results.get().init_publications(publications.len() as u32);
             for (i, p) in publications.iter().enumerate() {
-                let p_str: &str = p;
-                publication_list.set(i as u32, p_str.into());
+                publication_list.set(i as u32, p.as_str().into());
+            }
+
+            Ok(())
+        })
+    }
+
+    fn deals(
+        &mut self,
+        params: publications::DealsParams,
+        mut results: publications::DealsResults,
+    ) -> Promise<(), Error> {
+        let args = pry!(params.get());
+        let ns = pry!(pry!(args.get_ns()).to_string());
+        if ns.is_empty() {
+            return Promise::err(Error::failed("namespace is required".into()));
+        }
+        let rel = pry!(pry!(args.get_rel()).to_string());
+        if rel.is_empty() {
+            return Promise::err(Error::failed("relation is required".into()));
+        }
+        let limit = args.get_limit();
+
+        let offset = pry!(pry!(args.get_offset()).to_string());
+        if offset.is_empty() {
+            return Promise::err(Error::failed("offset is required".into()));
+        }
+        let offset = match U256::from_str_radix(&offset, 10) {
+            Ok(n) => n,
+            Err(e) => {
+                return Promise::err(Error::failed(e.to_string()));
+            }
+        };
+
+        let e = self.evm_client.clone();
+        Promise::from_future(async move {
+            let deals = e
+                .deals(format!("{}.{}", ns, rel).as_str(), offset, limit)
+                .await?;
+
+            let mut deals_list = results.get().init_deals(deals.len() as u32);
+            for (i, d) in deals.iter().enumerate() {
+                let mut builder = deals_list.reborrow().get(i as u32);
+                builder.set_id(d.id);
+                builder.set_cid(d.cid.as_str().into());
+                builder.set_selector_path(d.selector_path.as_str().into());
+            }
+
+            Ok(())
+        })
+    }
+
+    fn latest_deals(
+        &mut self,
+        params: publications::LatestDealsParams,
+        mut results: publications::LatestDealsResults,
+    ) -> Promise<(), Error> {
+        let args = pry!(params.get());
+        let ns = pry!(pry!(args.get_ns()).to_string());
+        if ns.is_empty() {
+            return Promise::err(Error::failed("namespace is required".into()));
+        }
+        let rel = pry!(pry!(args.get_rel()).to_string());
+        if rel.is_empty() {
+            return Promise::err(Error::failed("relation is required".into()));
+        }
+        let n = args.get_n();
+
+        let e = self.evm_client.clone();
+        Promise::from_future(async move {
+            let deals = e
+                .latest_deals(format!("{}.{}", ns, rel).as_str(), n)
+                .await?;
+
+            let mut deals_list = results.get().init_deals(deals.len() as u32);
+            for (i, d) in deals.iter().enumerate() {
+                let mut di = deals_list.reborrow().get(i as u32);
+                di.set_id(d.id);
+
+                let cid: &str = d.cid.as_str();
+                di.set_cid(cid.into());
+
+                let sp: &str = d.selector_path.as_str();
+                di.set_selector_path(sp.into());
             }
 
             Ok(())
@@ -261,7 +343,7 @@ impl publications::callback::Server for UploadCallback {
         debug!("publication upload {} finished for {}", self.fname, owner);
 
         let n = self.ns.clone();
-        let p = self.pg_pool.clone();
+        let p: sqlx::Pool<sqlx::Postgres> = self.pg_pool.clone();
         Promise::from_future(async move {
             if db::is_namespace_owner(&p, &n, owner).await? {
                 Ok(())

@@ -1,11 +1,11 @@
-use crate::{Contract, EVMClient};
+use crate::{contract::DealInfo, Contract, EVMClient};
 use async_trait::async_trait;
 use basin_common::errors::{Error, Result};
 use ethers::{
     middleware::SignerMiddleware,
     providers::{Http, Provider},
     signers::{LocalWallet, Signer},
-    types::{Address, Chain},
+    types::{Address, Chain, U256},
 };
 use std::{sync::Arc, time::Duration};
 
@@ -50,6 +50,27 @@ impl EVMClient for BasinClient {
     async fn list_pub(&self, owner: Address) -> Result<Vec<String>, Error> {
         self.contract
             .pubs_of_owner(owner)
+            .call()
+            .await
+            .map_err(|e| Error::Evm(e.to_string()))
+    }
+
+    async fn deals(
+        &self,
+        publication: &str,
+        offset: U256,
+        limit: u32,
+    ) -> Result<Vec<DealInfo>, Error> {
+        self.contract
+            .paginated_deals(publication.to_string(), offset, U256::from(limit))
+            .call()
+            .await
+            .map_err(|e| Error::Evm(e.to_string()))
+    }
+
+    async fn latest_deals(&self, publication: &str, n: u32) -> Result<Vec<DealInfo>, Error> {
+        self.contract
+            .latest_n_deals(publication.to_string(), U256::from(n))
             .call()
             .await
             .map_err(|e| Error::Evm(e.to_string()))
