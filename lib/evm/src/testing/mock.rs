@@ -74,11 +74,15 @@ impl EVMClient for MockClient {
     async fn deals(
         &self,
         publication: &str,
-        offset: U256,
+        offset: u64,
         limit: u32,
     ) -> Result<Vec<DealInfo>, Error> {
         self.contract
-            .paginated_deals(publication.to_string(), offset, U256::from(limit))
+            .paginated_deals(
+                publication.to_string(),
+                U256::from(offset),
+                U256::from(limit),
+            )
             .call()
             .await
             .map_err(|e| Error::Evm(e.to_string()))

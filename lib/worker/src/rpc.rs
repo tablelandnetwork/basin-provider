@@ -3,12 +3,13 @@ use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
 use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
-use ethers::types::{Address, U256};
+use ethers::types::Address;
 use futures::AsyncReadExt;
 use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
 use google_cloud_storage::http::resumable_upload_client::{ChunkSize, ResumableUploadClient};
 use log::{debug, info};
 use sqlx::postgres::PgPool;
+use sqlx::{Pool, Postgres};
 use tiny_keccak::{Hasher, Keccak};
 use tokio::net::TcpListener;
 
@@ -207,17 +208,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             return Promise::err(Error::failed("relation is required".into()));
         }
         let limit = args.get_limit();
-
-        let offset = pry!(pry!(args.get_offset()).to_string());
-        if offset.is_empty() {
-            return Promise::err(Error::failed("offset is required".into()));
-        }
-        let offset = match U256::from_str_radix(&offset, 10) {
-            Ok(n) => n,
-            Err(e) => {
-                return Promise::err(Error::failed(e.to_string()));
-            }
-        };
+        let offset = args.get_offset();
 
         let e = self.evm_client.clone();
         Promise::from_future(async move {
@@ -343,7 +334,7 @@ impl publications::callback::Server for UploadCallback {
         debug!("publication upload {} finished for {}", self.fname, owner);
 
         let n = self.ns.clone();
-        let p: sqlx::Pool<sqlx::Postgres> = self.pg_pool.clone();
+        let p: Pool<Postgres> = self.pg_pool.clone();
         Promise::from_future(async move {
             if db::is_namespace_owner(&p, &n, owner).await? {
                 Ok(())

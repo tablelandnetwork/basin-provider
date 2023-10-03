@@ -2983,18 +2983,14 @@ pub mod publications {
         self.reader.get_data_field::<u32>(0)
       }
       #[inline]
-      pub fn get_offset(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
-        ::capnp::traits::FromPointerReader::get_from_pointer(&self.reader.get_pointer_field(2), ::core::option::Option::None)
-      }
-      #[inline]
-      pub fn has_offset(&self) -> bool {
-        !self.reader.get_pointer_field(2).is_null()
+      pub fn get_offset(self) -> u64 {
+        self.reader.get_data_field::<u64>(1)
       }
     }
 
     pub struct Builder<'a> { builder: ::capnp::private::layout::StructBuilder<'a> }
     impl <'a,> ::capnp::traits::HasStructSize for Builder<'a,>  {
-      const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 1, pointers: 3 };
+      const STRUCT_SIZE: ::capnp::private::layout::StructSize = ::capnp::private::layout::StructSize { data: 2, pointers: 2 };
     }
     impl <'a,> ::capnp::traits::HasTypeId for Builder<'a,>  {
       const TYPE_ID: u64 = _private::TYPE_ID;
@@ -3085,20 +3081,12 @@ pub mod publications {
         self.builder.set_data_field::<u32>(0, value);
       }
       #[inline]
-      pub fn get_offset(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
-        ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(2), ::core::option::Option::None)
+      pub fn get_offset(self) -> u64 {
+        self.builder.get_data_field::<u64>(1)
       }
       #[inline]
-      pub fn set_offset(&mut self, value: ::capnp::text::Reader<'_>)  {
-        self.builder.reborrow().get_pointer_field(2).set_text(value);
-      }
-      #[inline]
-      pub fn init_offset(self, size: u32) -> ::capnp::text::Builder<'a> {
-        self.builder.get_pointer_field(2).init_text(size)
-      }
-      #[inline]
-      pub fn has_offset(&self) -> bool {
-        !self.builder.is_pointer_field_null(2)
+      pub fn set_offset(&mut self, value: u64)  {
+        self.builder.set_data_field::<u64>(1, value);
       }
     }
 
@@ -3114,9 +3102,9 @@ pub mod publications {
       pub static ENCODED_NODE: [::capnp::Word; 79] = [
         ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
         ::capnp::word(174, 212, 11, 232, 94, 173, 155, 136),
-        ::capnp::word(35, 0, 0, 0, 1, 0, 1, 0),
+        ::capnp::word(35, 0, 0, 0, 1, 0, 2, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-        ::capnp::word(3, 0, 7, 0, 0, 0, 0, 0),
+        ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(21, 0, 0, 0, 130, 1, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -3152,7 +3140,7 @@ pub mod publications {
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(100, 0, 0, 0, 3, 0, 1, 0),
         ::capnp::word(112, 0, 0, 0, 2, 0, 1, 0),
-        ::capnp::word(3, 0, 0, 0, 2, 0, 0, 0),
+        ::capnp::word(3, 0, 0, 0, 1, 0, 0, 0),
         ::capnp::word(0, 0, 1, 0, 3, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(109, 0, 0, 0, 58, 0, 0, 0),
@@ -3184,11 +3172,11 @@ pub mod publications {
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(111, 102, 102, 115, 101, 116, 0, 0),
-        ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+        ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-        ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+        ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
         ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ];
@@ -3197,7 +3185,7 @@ pub mod publications {
           0 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
           1 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
           2 => <u32 as ::capnp::introspect::Introspect>::introspect(),
-          3 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+          3 => <u64 as ::capnp::introspect::Introspect>::introspect(),
           _ => panic!("invalid field index {}", index),
         }
       }
