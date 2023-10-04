@@ -79,7 +79,7 @@ async fn get_pg_pool(db_name: String) -> (PgPool, String) {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn create_publication_works() {
+async fn create_publication_and_list_works() {
     let local = LocalSet::new();
     local
         .run_until(async {
@@ -92,9 +92,12 @@ async fn create_publication_works() {
 
             let wallet = LocalWallet::new(&mut thread_rng());
 
+            let ns = rand_str(12);
+            let rel = rand_str(12);
+
             let mut request = client.create_request();
-            request.get().set_ns(rand_str(12).as_str().into());
-            request.get().set_rel(rand_str(12).as_str().into());
+            request.get().set_ns(ns.as_str().into());
+            request.get().set_rel(rel.as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
 
             let mut cols = request.get().init_schema().init_columns(1);
@@ -115,6 +118,15 @@ async fn create_publication_works() {
                 .unwrap()
                 .get_exists();
             assert!(!exists);
+
+            let mut list_request = client.list_request();
+            list_request.get().set_owner(wallet.address().as_bytes());
+
+            let response = list_request.send().promise.await.unwrap();
+            let publications = response.get().unwrap().get_publications().unwrap();
+            let p = publications.get(0).unwrap().to_string().unwrap();
+
+            assert_eq!(format!("{}.{}", ns, rel), p);
 
             db::drop(pool.clone(), &db_url).await.unwrap();
         })
