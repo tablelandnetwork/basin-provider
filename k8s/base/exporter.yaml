@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: basin-exporter-01
+  labels:
+    app: basin-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: basin-exporter-v1
+  template:
+    metadata:
+      labels:
+        app: basin-exporter-v1
+    spec:
+      containers:
+        - name: basin-exporter
+          image: textile/basin_exporter
+          imagePullPolicy: Always
+          command: ["/bin/app"]
+          args: [
+            "--export-bucket", "$(EXPORT_BUCKET)",
+            "--database-url", "$(DATABASE_URL)",
+            "--export-credentials", "$(EXPORT_CREDENTIALS)",
+            "--bind-health-address", "$(BIND_HEALTH_ADDRESS)",
+           #"--export-schedule", "$(EXPORT_SCHEDULE)",
+            "-vvvvv"
+          ]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: database-url
+            - name: EXPORT_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: export-credentials
+          envFrom:
+            - configMapRef:
+                name: configmap-basin-exporter
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3

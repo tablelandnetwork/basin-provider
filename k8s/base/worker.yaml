@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: basin-worker-01
+  labels:
+    app: basin-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: basin-worker-v1
+  template:
+    metadata:
+      labels:
+        app: basin-worker-v1
+    spec:
+      containers:
+        - name: basin-worker
+          image: textile/basin_worker
+          imagePullPolicy: Always
+          command: ["/bin/app"]
+          args: [
+            "--export-bucket", "$(EXPORT_BUCKET)",
+            "--database-url", "$(DATABASE_URL)",
+            "--export-credentials", "$(EXPORT_CREDENTIALS)",
+            "--evm-wallet-pk", "$(EVM_WALLET_PK)",
+            "--evm-contract-address", "$(EVM_CONTRACT_ADDRESS)",
+            "--evm-provider-url", "$(EVM_PROVIDER_URL)",
+            "--evm-chain-id", "$(EVM_CHAIN_ID)",
+            "--bind-address", "$(BIND_ADDRESS)",
+            "--bind-health-address", "$(BIND_HEALTH_ADDRESS)",
+            "-vvvvv"
+          ]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: database-url
+            - name: EXPORT_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: export-credentials
+            - name: EVM_WALLET_PK
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: evm-wallet-pk
+          envFrom:
+            - configMapRef:
+                name: configmap-basin-worker
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
