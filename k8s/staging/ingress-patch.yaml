@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-nginx
+spec:
+  ingressClassName: nginx
+  tls:
+    - secretName: basin-ssl
+      hosts:
+        - basin.tableland.xyz
+  rules:
+    - host: basin.tableland.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: basin-worker
+                port:
+                  number: 3000

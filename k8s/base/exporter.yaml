@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: basin-exporter-01
+  name: basin-exporter
   labels:
     app: basin-exporter
 spec:
