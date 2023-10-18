@@ -52,6 +52,20 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
       - name: Buildx patch
         run: |
           Dockfiles="$(find $1  -name 'Dockerfile')"
@@ -105,7 +119,7 @@ jobs:
         uses: 'google-github-actions/get-gke-credentials@v1'
         with:
             cluster_name: ${{ env.GKE_CLUSTER }}
-            location: ${{ env.GKE_REGION }}
+            location: ${{ env.GKE_REGION }}          
 
       - name: Deploy to GKE
         working-directory: ./k8s
