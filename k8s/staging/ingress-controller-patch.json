@@ -1,0 +1,12 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/args/-",
+    "value": "--tcp-services-configmap=basin-staging/configmap-basin-tcp-services"
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/args/-",
+    "value": "--default-ssl-certificate=basin-staging/basin-ssl"
+  }
+]

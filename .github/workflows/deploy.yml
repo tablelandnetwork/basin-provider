@@ -1,0 +1,127 @@
+name: Deploy
+
+concurrency:
+  group: deploy-${{github.ref}}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - "**"
+  release:
+    types:
+      - created
+
+env:
+  GKE_REGION: us-east1
+  GKE_CLUSTER: basin
+  CONTAINER_REGISTRY: us-west1-docker.pkg.dev
+
+jobs:
+  deploy:
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[staging]')
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare
+        id: prep
+        run: |
+            if [[ ${{ github.event_name }} == 'release' ]]; then
+                echo "DEPLOYMENT=staging" >> "$GITHUB_ENV"
+            else
+                echo "DEPLOYMENT=staging" >> "$GITHUB_ENV"
+            fi
+            
+            echo "SHA_SHORT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Buildx patch
+        run: |
+          Dockfiles="$(find $1  -name 'Dockerfile')"
+          d=$(date +%s)
+          i=0
+          for file in $Dockfiles; do
+            i=$(( i + 1 ))
+            echo "patching timestamp for $file"
+            touch -d @$(( d + i )) "$file"
+          done
+
+      - name: Google Auth
+        uses: 'google-github-actions/auth@v1'
+        with:
+            credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+            
+      - name: Install Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: 415.0.0
+          project_id: ${{ secrets.GCP_PROJECT }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker $CONTAINER_REGISTRY
+
+      - name: Build and push worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: ./Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true
+          tags: ${{ env.CONTAINER_REGISTRY }}/${{ secrets.GCP_PROJECT }}/textile/basin/basin_worker:sha-${{ env.SHA_SHORT}}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          build-args: CRATE=basin_worker
+
+      - name: Build and push exporter
+        uses: docker/build-push-action@v5
+        with:
+            context: ./
+            file: ./Dockerfile
+            builder: ${{ steps.buildx.outputs.name }}
+            push: true
+            tags: ${{ env.CONTAINER_REGISTRY }}/${{ secrets.GCP_PROJECT }}/textile/basin/basin_exporter:sha-${{ env.SHA_SHORT }}
+            cache-from: type=local,src=/tmp/.buildx-cache
+            cache-to: type=local,dest=/tmp/.buildx-cache
+            build-args: CRATE=basin_exporter
+
+      - name: Get GKE Credentials
+        uses: 'google-github-actions/get-gke-credentials@v1'
+        with:
+            cluster_name: ${{ env.GKE_CLUSTER }}
+            location: ${{ env.GKE_REGION }}          
+
+      - name: Deploy to GKE
+        working-directory: ./k8s
+        run: |
+          DEPLOYMENT=$DEPLOYMENT IMAGE_BASIN_WORKER=$CONTAINER_REGISTRY/${{ secrets.GCP_PROJECT }}/textile/basin/basin_worker:sha-$SHA_SHORT IMAGE_BASIN_EXPORTER=$CONTAINER_REGISTRY/${{ secrets.GCP_PROJECT }}/textile/basin/basin_exporter:sha-$SHA_SHORT make deploy
