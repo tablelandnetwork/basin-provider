@@ -1,7 +1,10 @@
 use basin_common::db;
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
-use basin_worker::{gcs::GcsClient, rpc, utils};
+use basin_worker::{
+    db::pub_jobs_insert, gcs::GcsClient, rpc, utils, web3storage::Web3StorageClient,
+    web3storage::DEFAULT_BASE_URL,
+};
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
@@ -32,10 +35,19 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
     )
     .await
     .unwrap();
+
+    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
+
     spawn_local(async move {
-        rpc::listen(MockClient::new().await.unwrap(), pool, gcs_client, listener)
-            .await
-            .unwrap()
+        rpc::listen(
+            MockClient::new().await.unwrap(),
+            pool,
+            gcs_client,
+            web3store_client,
+            listener,
+        )
+        .await
+        .unwrap()
     });
     sleep(Duration::from_millis(5_000)).await;
     bind_addr
@@ -127,6 +139,39 @@ async fn create_publication_and_list_works() {
             let p = publications.get(0).unwrap().to_string().unwrap();
 
             assert_eq!(format!("{}.{}", ns, rel), p);
+
+            // insert a job and request the deal
+            let (_, data) =
+                multibase::decode("bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i")
+                    .unwrap();
+            pub_jobs_insert(
+                &pool,
+                ns.as_str(),
+                rel.as_str(),
+                data,
+                chrono::NaiveDateTime::from_timestamp_millis(1698763113).unwrap(),
+            )
+            .await
+            .unwrap();
+
+            let mut deals_request = client.latest_deals_request();
+            deals_request.get().set_ns(ns.as_str().into());
+            deals_request.get().set_rel(rel.as_str().into());
+            deals_request.get().set_n(1);
+
+            let response = deals_request.send().promise.await.unwrap();
+            let deals = response.get().unwrap().get_deals().unwrap();
+
+            assert_eq!(
+                "bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
+                deals.get(0).get_cid().unwrap()
+            );
+            assert_eq!(
+                "2023-10-27T20:08:24.015+00:00",
+                deals.get(0).get_created().unwrap()
+            );
+            assert!(deals.get(0).get_is_permament());
+            assert_eq!(380733, deals.get(0).get_size());
 
             db::drop(pool.clone(), &db_url).await.unwrap();
         })

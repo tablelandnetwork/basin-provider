@@ -1780,24 +1780,28 @@ pub mod deal_info {
       self.reader.total_size()
     }
     #[inline]
-    pub fn get_id(self) -> u64 {
-      self.reader.get_data_field::<u64>(0)
-    }
-    #[inline]
-    pub fn get_selector_path(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
+    pub fn get_cid(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
       ::capnp::traits::FromPointerReader::get_from_pointer(&self.reader.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn has_selector_path(&self) -> bool {
+    pub fn has_cid(&self) -> bool {
       !self.reader.get_pointer_field(0).is_null()
     }
     #[inline]
-    pub fn get_cid(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
+    pub fn get_size(self) -> u32 {
+      self.reader.get_data_field::<u32>(0)
+    }
+    #[inline]
+    pub fn get_created(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
       ::capnp::traits::FromPointerReader::get_from_pointer(&self.reader.get_pointer_field(1), ::core::option::Option::None)
     }
     #[inline]
-    pub fn has_cid(&self) -> bool {
+    pub fn has_created(&self) -> bool {
       !self.reader.get_pointer_field(1).is_null()
+    }
+    #[inline]
+    pub fn get_is_permament(self) -> bool {
+      self.reader.get_bool_field(32)
     }
   }
 
@@ -1854,44 +1858,52 @@ pub mod deal_info {
       self.builder.as_reader().total_size()
     }
     #[inline]
-    pub fn get_id(self) -> u64 {
-      self.builder.get_data_field::<u64>(0)
-    }
-    #[inline]
-    pub fn set_id(&mut self, value: u64)  {
-      self.builder.set_data_field::<u64>(0, value);
-    }
-    #[inline]
-    pub fn get_selector_path(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
+    pub fn get_cid(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(0), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_selector_path(&mut self, value: ::capnp::text::Reader<'_>)  {
+    pub fn set_cid(&mut self, value: ::capnp::text::Reader<'_>)  {
       self.builder.reborrow().get_pointer_field(0).set_text(value);
     }
     #[inline]
-    pub fn init_selector_path(self, size: u32) -> ::capnp::text::Builder<'a> {
+    pub fn init_cid(self, size: u32) -> ::capnp::text::Builder<'a> {
       self.builder.get_pointer_field(0).init_text(size)
     }
     #[inline]
-    pub fn has_selector_path(&self) -> bool {
+    pub fn has_cid(&self) -> bool {
       !self.builder.is_pointer_field_null(0)
     }
     #[inline]
-    pub fn get_cid(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
+    pub fn get_size(self) -> u32 {
+      self.builder.get_data_field::<u32>(0)
+    }
+    #[inline]
+    pub fn set_size(&mut self, value: u32)  {
+      self.builder.set_data_field::<u32>(0, value);
+    }
+    #[inline]
+    pub fn get_created(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
       ::capnp::traits::FromPointerBuilder::get_from_pointer(self.builder.get_pointer_field(1), ::core::option::Option::None)
     }
     #[inline]
-    pub fn set_cid(&mut self, value: ::capnp::text::Reader<'_>)  {
+    pub fn set_created(&mut self, value: ::capnp::text::Reader<'_>)  {
       self.builder.reborrow().get_pointer_field(1).set_text(value);
     }
     #[inline]
-    pub fn init_cid(self, size: u32) -> ::capnp::text::Builder<'a> {
+    pub fn init_created(self, size: u32) -> ::capnp::text::Builder<'a> {
       self.builder.get_pointer_field(1).init_text(size)
     }
     #[inline]
-    pub fn has_cid(&self) -> bool {
+    pub fn has_created(&self) -> bool {
       !self.builder.is_pointer_field_null(1)
+    }
+    #[inline]
+    pub fn get_is_permament(self) -> bool {
+      self.builder.get_bool_field(32)
+    }
+    #[inline]
+    pub fn set_is_permament(&mut self, value: bool)  {
+      self.builder.set_bool_field(32, value);
     }
   }
 
@@ -1904,7 +1916,7 @@ pub mod deal_info {
   impl Pipeline  {
   }
   mod _private {
-    pub static ENCODED_NODE: [::capnp::Word; 65] = [
+    pub static ENCODED_NODE: [::capnp::Word; 80] = [
       ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
       ::capnp::word(134, 40, 187, 117, 196, 247, 155, 198),
       ::capnp::word(25, 0, 0, 0, 1, 0, 1, 0),
@@ -1914,7 +1926,7 @@ pub mod deal_info {
       ::capnp::word(21, 0, 0, 0, 18, 1, 0, 0),
       ::capnp::word(37, 0, 0, 0, 7, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(33, 0, 0, 0, 175, 0, 0, 0),
+      ::capnp::word(33, 0, 0, 0, 231, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(115, 99, 104, 101, 109, 97, 47, 100),
@@ -1923,45 +1935,35 @@ pub mod deal_info {
       ::capnp::word(58, 68, 101, 97, 108, 73, 110, 102),
       ::capnp::word(111, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 1, 0, 1, 0),
-      ::capnp::word(12, 0, 0, 0, 3, 0, 4, 0),
+      ::capnp::word(16, 0, 0, 0, 3, 0, 4, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(69, 0, 0, 0, 26, 0, 0, 0),
+      ::capnp::word(97, 0, 0, 0, 34, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(64, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(76, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(92, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(104, 0, 0, 0, 2, 0, 1, 0),
       ::capnp::word(1, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 1, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(73, 0, 0, 0, 106, 0, 0, 0),
+      ::capnp::word(101, 0, 0, 0, 42, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(72, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(84, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(96, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(108, 0, 0, 0, 2, 0, 1, 0),
       ::capnp::word(2, 0, 0, 0, 1, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 2, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(81, 0, 0, 0, 34, 0, 0, 0),
+      ::capnp::word(105, 0, 0, 0, 66, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(76, 0, 0, 0, 3, 0, 1, 0),
-      ::capnp::word(88, 0, 0, 0, 2, 0, 1, 0),
-      ::capnp::word(105, 100, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(100, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(112, 0, 0, 0, 2, 0, 1, 0),
+      ::capnp::word(3, 0, 0, 0, 32, 0, 0, 0),
+      ::capnp::word(0, 0, 1, 0, 3, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(109, 0, 0, 0, 98, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(115, 101, 108, 101, 99, 116, 111, 114),
-      ::capnp::word(80, 97, 116, 104, 0, 0, 0, 0),
-      ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(108, 0, 0, 0, 3, 0, 1, 0),
+      ::capnp::word(120, 0, 0, 0, 2, 0, 1, 0),
       ::capnp::word(99, 105, 100, 0, 0, 0, 0, 0),
       ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -1970,12 +1972,38 @@ pub mod deal_info {
       ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(115, 105, 122, 101, 0, 0, 0, 0),
+      ::capnp::word(8, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(8, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(99, 114, 101, 97, 116, 101, 100, 0),
+      ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(105, 115, 80, 101, 114, 109, 97, 109),
+      ::capnp::word(101, 110, 116, 0, 0, 0, 0, 0),
+      ::capnp::word(1, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(1, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
     ];
     pub fn get_field_types(index: u16) -> ::capnp::introspect::Type {
       match index {
-        0 => <u64 as ::capnp::introspect::Introspect>::introspect(),
-        1 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+        0 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+        1 => <u32 as ::capnp::introspect::Introspect>::introspect(),
         2 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+        3 => <bool as ::capnp::introspect::Introspect>::introspect(),
         _ => panic!("invalid field index {}", index),
       }
     }
@@ -1987,7 +2015,7 @@ pub mod deal_info {
       nonunion_members: NONUNION_MEMBERS,
       members_by_discriminant: MEMBERS_BY_DISCRIMINANT,
     };
-    pub static NONUNION_MEMBERS : &[u16] = &[0,1,2];
+    pub static NONUNION_MEMBERS : &[u16] = &[0,1,2,3];
     pub static MEMBERS_BY_DISCRIMINANT : &[u16] = &[];
     pub const TYPE_ID: u64 = 0xc69b_f7c4_75bb_2886;
   }

@@ -1568,54 +1568,50 @@ pub mod basin_storage {
             data: impl AsRef<[u8]>,
         ) -> ::core::result::Result<Self, ::ethers::core::abi::AbiError> {
             let data = data.as_ref();
-            if let Ok(decoded) = <::std::string::String as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <::std::string::String as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::RevertString(decoded));
             }
-            if let Ok(decoded) = <ActorError as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <ActorError as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::ActorError(decoded));
             }
-            if let Ok(decoded) = <ActorNotFound as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <ActorNotFound as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::ActorNotFound(decoded));
             }
-            if let Ok(decoded) = <DealEpochAlreadyExists as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealEpochAlreadyExists as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::DealEpochAlreadyExists(decoded));
             }
-            if let Ok(decoded) = <FailToCallActor as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <FailToCallActor as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::FailToCallActor(decoded));
             }
-            if let Ok(decoded) = <InvalidCodec as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <InvalidCodec as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::InvalidCodec(decoded));
             }
-            if let Ok(decoded) = <InvalidResponseLength as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <InvalidResponseLength as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::InvalidResponseLength(decoded));
             }
-            if let Ok(decoded) = <NotEnoughBalance as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <NotEnoughBalance as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::NotEnoughBalance(decoded));
             }
-            if let Ok(decoded) = <PubAlreadyExists as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <PubAlreadyExists as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::PubAlreadyExists(decoded));
             }
-            if let Ok(decoded) = <PubDoesNotExist as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <PubDoesNotExist as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::PubDoesNotExist(decoded));
             }
             Err(::ethers::core::abi::Error::InvalidData.into())
@@ -2297,114 +2293,100 @@ pub mod basin_storage {
             data: impl AsRef<[u8]>,
         ) -> ::core::result::Result<Self, ::ethers::core::abi::AbiError> {
             let data = data.as_ref();
-            if let Ok(decoded) = <DefaultAdminRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DefaultAdminRoleCall as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::DefaultAdminRole(decoded));
             }
-            if let Ok(decoded) = <PubAdminRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <PubAdminRoleCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::PubAdminRole(decoded));
             }
-            if let Ok(decoded) = <AddDealsCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <AddDealsCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::AddDeals(decoded));
             }
-            if let Ok(decoded) = <CreatePubCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <CreatePubCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::CreatePub(decoded));
             }
-            if let Ok(decoded) = <DealActivationCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealActivationCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealActivation(decoded));
             }
-            if let Ok(decoded) = <DealClientCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealClientCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealClient(decoded));
             }
-            if let Ok(decoded) = <DealClientCollateralCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealClientCollateralCall as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::DealClientCollateral(decoded));
             }
-            if let Ok(decoded) = <DealLabelCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealLabelCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealLabel(decoded));
             }
-            if let Ok(decoded) = <DealProviderCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealProviderCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealProvider(decoded));
             }
-            if let Ok(decoded) = <DealProviderCollateralCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealProviderCollateralCall as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::DealProviderCollateral(decoded));
             }
-            if let Ok(decoded) = <DealTermCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealTermCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealTerm(decoded));
             }
-            if let Ok(decoded) = <DealTotalPriceCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealTotalPriceCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealTotalPrice(decoded));
             }
-            if let Ok(decoded) = <DealVerifiedCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <DealVerifiedCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::DealVerified(decoded));
             }
-            if let Ok(decoded) = <GetRoleAdminCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <GetRoleAdminCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::GetRoleAdmin(decoded));
             }
-            if let Ok(decoded) = <GrantRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <GrantRoleCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::GrantRole(decoded));
             }
-            if let Ok(decoded) = <HasRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <HasRoleCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::HasRole(decoded));
             }
-            if let Ok(decoded) = <LatestNDealsCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <LatestNDealsCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::LatestNDeals(decoded));
             }
-            if let Ok(decoded) = <PaginatedDealsCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <PaginatedDealsCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::PaginatedDeals(decoded));
             }
-            if let Ok(decoded) = <PubsOfOwnerCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <PubsOfOwnerCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::PubsOfOwner(decoded));
             }
-            if let Ok(decoded) = <RenounceRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <RenounceRoleCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::RenounceRole(decoded));
             }
-            if let Ok(decoded) = <RevokeRoleCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <RevokeRoleCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::RevokeRole(decoded));
             }
-            if let Ok(decoded) = <SupportsInterfaceCall as ::ethers::core::abi::AbiDecode>::decode(
-                data,
-            ) {
+            if let Ok(decoded)
+                = <SupportsInterfaceCall as ::ethers::core::abi::AbiDecode>::decode(
+                    data,
+                ) {
                 return Ok(Self::SupportsInterface(decoded));
             }
             Err(::ethers::core::abi::Error::InvalidData.into())
