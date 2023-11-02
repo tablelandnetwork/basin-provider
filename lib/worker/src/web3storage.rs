@@ -29,9 +29,9 @@ pub struct Pin {
 #[derive(Deserialize, Debug)]
 pub struct Deal {
     #[serde(rename = "dealId")]
-    deal_id: u32,
+    deal_id: Option<u32>,
     #[serde(rename = "storageProvider")]
-    storage_provider: String,
+    storage_provider: Option<String>,
     status: String,
     #[serde(rename = "pieceCid")]
     piece_cid: String,
@@ -39,10 +39,10 @@ pub struct Deal {
     data_cid: String,
     #[serde(rename = "dataModelSelector")]
     data_model_selector: String,
-    activation: String,
-    expiration: String,
-    created: String,
-    updated: String,
+    activation: Option<String>,
+    expiration: Option<String>,
+    created: Option<String>,
+    updated: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -128,8 +128,11 @@ mod tests {
         assert_eq!(None, status.pins[0].region);
 
         // deal
-        assert_eq!(60497440, status.deals[0].deal_id);
-        assert_eq!("f01392893", status.deals[0].storage_provider);
+        assert_eq!(Some(60497440), status.deals[0].deal_id);
+        assert_eq!(
+            Some("f01392893".to_string()),
+            status.deals[0].storage_provider
+        );
         assert_eq!("Active", status.deals[0].status);
         assert_eq!(
             "baga6ea4seaqmjfxq45gotde77ay7sqljb7gt5gns3vojgwoj3fb3zmqvddkx2py",
@@ -143,9 +146,21 @@ mod tests {
             "Links/4/Hash/Links/54/Hash/Links/0/Hash",
             status.deals[0].data_model_selector
         );
-        assert_eq!("2023-10-31T07:33:00+00:00", status.deals[0].activation);
-        assert_eq!("2025-04-15T07:33:00+00:00", status.deals[0].expiration);
-        assert_eq!("2023-10-31T13:20:03.875131+00:00", status.deals[0].created);
-        assert_eq!("2023-10-31T13:20:03.875131+00:00", status.deals[0].updated);
+        assert_eq!(
+            Some("2023-10-31T07:33:00+00:00".to_string()),
+            status.deals[0].activation
+        );
+        assert_eq!(
+            Some("2025-04-15T07:33:00+00:00".to_string()),
+            status.deals[0].expiration
+        );
+        assert_eq!(
+            Some("2023-10-31T13:20:03.875131+00:00".to_string()),
+            status.deals[0].created
+        );
+        assert_eq!(
+            Some("2023-10-31T13:20:03.875131+00:00".to_string()),
+            status.deals[0].updated
+        );
     }
 }
