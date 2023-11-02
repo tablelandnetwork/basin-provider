@@ -1,9 +1,9 @@
 use basin_common::db;
+use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
 use basin_worker::{
-    db::pub_jobs_insert, gcs::GcsClient, rpc, utils, web3storage::Web3StorageClient,
-    web3storage::DEFAULT_BASE_URL,
+    gcs::GcsClient, rpc, utils, web3storage::Web3StorageClient, web3storage::DEFAULT_BASE_URL,
 };
 use capnp::capability::Request;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
@@ -376,4 +376,24 @@ async fn rand_file(s: usize) -> BufReader<File> {
 
     let f = File::open(&p).await.unwrap();
     BufReader::new(f)
+}
+
+async fn pub_jobs_insert(
+    pool: &PgPool,
+    ns: &str,
+    rel: &str,
+    cid: Vec<u8>,
+    activated: chrono::NaiveDateTime,
+) -> Result<()> {
+    sqlx::query!(
+        "INSERT INTO jobs (ns_id, cid, relation, activated) SELECT id, $2, $3, $4 FROM namespaces WHERE name = $1",
+        ns,
+        cid,
+        rel,
+        activated,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }

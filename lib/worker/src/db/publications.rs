@@ -89,27 +89,6 @@ pub async fn pub_cids(
     Ok(cids)
 }
 
-// Insert a job (used for testing)
-pub async fn pub_jobs_insert(
-    pool: &PgPool,
-    ns: &str,
-    rel: &str,
-    cid: Vec<u8>,
-    activated: chrono::NaiveDateTime,
-) -> Result<()> {
-    sqlx::query!(
-        "INSERT INTO jobs (ns_id, cid, relation, activated) SELECT id, $2, $3, $4 FROM namespaces WHERE name = $1",
-        ns,
-        cid,
-        rel,
-        activated,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
 /// Runs sqlx query within a database transaction.
 async fn txn_execute(
     txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,

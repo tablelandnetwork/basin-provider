@@ -223,15 +223,29 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset).await?;
 
             let mut deals_list = results.get().init_deals(cids.len() as u32);
-            for (i, cid) in cids.iter().enumerate() {
+
+            let futures = cids
+                .into_iter()
+                .map(|cid: String| {
+                    let client = web3storage_client.clone();
+                    async move {
+                        client
+                            .status_of_cid(&cid)
+                            .await
+                            .map_err(|e| Error::failed(e.to_string()))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let responses = futures::future::join_all(futures).await;
+
+            for (i, response) in responses.iter().enumerate() {
+                let status = response
+                    .as_ref()
+                    .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
-                let status = web3storage_client
-                    .status_of_cid(cid)
-                    .await
-                    .map_err(|e| Error::failed(e.to_string()))?;
-
-                builder.set_cid(cid.as_str().into());
+                builder.set_cid(status.cid.as_str().into());
                 builder.set_created(status.created.as_str().into());
                 builder.set_size(status.dag_size);
                 builder.set_is_permament(!status.deals.is_empty());
@@ -263,15 +277,29 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             let cids = db::pub_cids(&pg_pool, ns, rel, n, 0).await?;
 
             let mut deals_list = results.get().init_deals(cids.len() as u32);
-            for (i, cid) in cids.iter().enumerate() {
+
+            let futures = cids
+                .into_iter()
+                .map(|cid: String| {
+                    let client = web3storage_client.clone();
+                    async move {
+                        client
+                            .status_of_cid(&cid)
+                            .await
+                            .map_err(|e| Error::failed(e.to_string()))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let responses = futures::future::join_all(futures).await;
+
+            for (i, response) in responses.iter().enumerate() {
+                let status = response
+                    .as_ref()
+                    .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
-                let status = web3storage_client
-                    .status_of_cid(cid)
-                    .await
-                    .map_err(|e| Error::failed(e.to_string()))?;
-
-                builder.set_cid(cid.as_str().into());
+                builder.set_cid(status.cid.as_str().into());
                 builder.set_created(status.created.as_str().into());
                 builder.set_size(status.dag_size);
                 builder.set_is_permament(!status.deals.is_empty());
