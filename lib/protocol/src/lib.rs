@@ -1,3 +1,3 @@
 mod schema;
 
-pub use schema::{publications, schema as tableschema, tx, deal_info};
+pub use schema::{deal_info, publications, schema as tableschema, tx};

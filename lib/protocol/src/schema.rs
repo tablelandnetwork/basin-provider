@@ -3,5 +3,5 @@
 mod definitions_capnp;
 mod provider_capnp;
 
-pub use definitions_capnp::{schema, tx, deal_info};
+pub use definitions_capnp::{deal_info, schema, tx};
 pub use provider_capnp::publications;
