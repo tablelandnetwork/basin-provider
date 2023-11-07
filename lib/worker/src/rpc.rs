@@ -248,7 +248,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 builder.set_cid(status.cid.as_str().into());
                 builder.set_created(status.created.as_str().into());
                 builder.set_size(status.dag_size);
-                builder.set_is_permament(!status.deals.is_empty());
+                builder.set_archived(!status.deals.is_empty());
             }
 
             Ok(())
@@ -302,7 +302,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 builder.set_cid(status.cid.as_str().into());
                 builder.set_created(status.created.as_str().into());
                 builder.set_size(status.dag_size);
-                builder.set_is_permament(!status.deals.is_empty());
+                builder.set_archived(!status.deals.is_empty());
             }
 
             Ok(())

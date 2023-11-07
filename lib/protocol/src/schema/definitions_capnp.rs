@@ -1800,7 +1800,7 @@ pub mod deal_info {
       !self.reader.get_pointer_field(1).is_null()
     }
     #[inline]
-    pub fn get_is_permament(self) -> bool {
+    pub fn get_archived(self) -> bool {
       self.reader.get_bool_field(32)
     }
   }
@@ -1898,11 +1898,11 @@ pub mod deal_info {
       !self.builder.is_pointer_field_null(1)
     }
     #[inline]
-    pub fn get_is_permament(self) -> bool {
+    pub fn get_archived(self) -> bool {
       self.builder.get_bool_field(32)
     }
     #[inline]
-    pub fn set_is_permament(&mut self, value: bool)  {
+    pub fn set_archived(&mut self, value: bool)  {
       self.builder.set_bool_field(32, value);
     }
   }
@@ -1960,7 +1960,7 @@ pub mod deal_info {
       ::capnp::word(3, 0, 0, 0, 32, 0, 0, 0),
       ::capnp::word(0, 0, 1, 0, 3, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(109, 0, 0, 0, 98, 0, 0, 0),
+      ::capnp::word(109, 0, 0, 0, 74, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(108, 0, 0, 0, 3, 0, 1, 0),
       ::capnp::word(120, 0, 0, 0, 2, 0, 1, 0),
@@ -1988,8 +1988,8 @@ pub mod deal_info {
       ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-      ::capnp::word(105, 115, 80, 101, 114, 109, 97, 109),
-      ::capnp::word(101, 110, 116, 0, 0, 0, 0, 0),
+      ::capnp::word(97, 114, 99, 104, 105, 118, 101, 100),
+      ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(1, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
       ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),

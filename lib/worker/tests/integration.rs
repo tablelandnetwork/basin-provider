@@ -170,7 +170,7 @@ async fn create_publication_and_list_works() {
                 "2023-10-27T20:08:24.015+00:00",
                 deals.get(0).get_created().unwrap()
             );
-            assert!(deals.get(0).get_is_permament());
+            assert!(deals.get(0).get_archived());
             assert_eq!(380733, deals.get(0).get_size());
 
             db::drop(pool.clone(), &db_url).await.unwrap();
