@@ -3198,8 +3198,8 @@ pub mod publications {
                 self.reader.get_data_field::<u64>(0)
             }
             #[inline]
-            pub fn get_timestamp(self) -> u64 {
-                self.reader.get_data_field::<u64>(1)
+            pub fn get_timestamp(self) -> i64 {
+                self.reader.get_data_field::<i64>(1)
             }
         }
 
@@ -3341,12 +3341,12 @@ pub mod publications {
                 self.builder.set_data_field::<u64>(0, value);
             }
             #[inline]
-            pub fn get_timestamp(self) -> u64 {
-                self.builder.get_data_field::<u64>(1)
+            pub fn get_timestamp(self) -> i64 {
+                self.builder.get_data_field::<i64>(1)
             }
             #[inline]
-            pub fn set_timestamp(&mut self, value: u64) {
-                self.builder.set_data_field::<u64>(1, value);
+            pub fn set_timestamp(&mut self, value: i64) {
+                self.builder.set_data_field::<i64>(1, value);
             }
         }
 
@@ -3437,11 +3437,11 @@ pub mod publications {
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(116, 105, 109, 101, 115, 116, 97, 109),
                 ::capnp::word(112, 0, 0, 0, 0, 0, 0, 0),
-                ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
+                ::capnp::word(5, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-                ::capnp::word(9, 0, 0, 0, 0, 0, 0, 0),
+                ::capnp::word(5, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
                 ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ];
@@ -3450,7 +3450,7 @@ pub mod publications {
                     0 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
                     1 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
                     2 => <u64 as ::capnp::introspect::Introspect>::introspect(),
-                    3 => <u64 as ::capnp::introspect::Introspect>::introspect(),
+                    3 => <i64 as ::capnp::introspect::Introspect>::introspect(),
                     _ => panic!("invalid field index {}", index),
                 }
             }
