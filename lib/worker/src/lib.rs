@@ -4,3 +4,4 @@ pub mod gcs;
 pub mod rpc;
 pub mod sql;
 pub mod utils;
+pub mod web3storage;

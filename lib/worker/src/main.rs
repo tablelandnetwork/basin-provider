@@ -2,6 +2,7 @@ use basin_common::{db, http};
 use basin_evm::{testing::MockClient, BasinClient};
 use basin_worker::gcs::GcsClient;
 use basin_worker::rpc;
+use basin_worker::web3storage::{Web3StorageClient, DEFAULT_BASE_URL};
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{
@@ -105,11 +106,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::setup(pg_pool.clone(), &args.database_url).await?;
 
     let gcs_client = GcsClient::new(args.export_bucket, args.export_credentials).await?;
+    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
 
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
 
     match args.evm_type {
-        EvmType::Mem => rpc::listen(MockClient::new().await?, pg_pool, gcs_client, listener).await,
+        EvmType::Mem => {
+            rpc::listen(
+                MockClient::new().await?,
+                pg_pool,
+                gcs_client,
+                web3store_client,
+                listener,
+            )
+            .await
+        }
         EvmType::Remote => {
             let mut cmd = Cli::command();
 
@@ -178,7 +189,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            rpc::listen(evm_client, pg_pool, gcs_client, listener).await
+            rpc::listen(evm_client, pg_pool, gcs_client, web3store_client, listener).await
         }
     }
 }

@@ -1,5 +1,6 @@
 use basin_common::errors::Result;
 use ethers::types::Address;
+use multibase::Base;
 use sqlx::postgres::{PgPool, PgQueryResult};
 use sqlx::Row;
 
@@ -55,6 +56,37 @@ pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<()> {
         txn_execute(&mut txn, &s).await?;
     }
     Ok(txn.commit().await?)
+}
+
+// Lists cids of a given publication
+pub async fn pub_cids(
+    pool: &PgPool,
+    ns: String,
+    rel: String,
+    limit: i32,
+    offset: i32,
+) -> Result<Vec<String>> {
+    let res = sqlx::query(
+        "SELECT cid FROM jobs 
+                                                JOIN namespaces ON namespaces.id = jobs.ns_id 
+                                                WHERE name=$1 AND relation = $2
+                                                ORDER BY jobs.id DESC
+                                                LIMIT $3
+                                                OFFSET $4",
+    )
+    .bind(ns)
+    .bind(rel)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    let cids = res
+        .iter()
+        .map(|row| multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")))
+        .collect();
+
+    Ok(cids)
 }
 
 /// Runs sqlx query within a database transaction.

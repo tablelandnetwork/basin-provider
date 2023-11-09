@@ -36,7 +36,7 @@ openssl = { version = "0.10.57", features = ["vendored"] }
 secp256k1 = { version = "0.27.0", features = ["recovery"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls"] }
+sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "chrono"] }
 stderrlog = "0.5.4"
 thiserror = "1.0.48"
 tiny-keccak = "2.0.2"

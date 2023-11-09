@@ -1,4 +1,4 @@
-use crate::{crypto, db, gcs::GcsClient, sql, utils};
+use crate::{crypto, db, gcs::GcsClient, sql, utils, web3storage::Web3StorageClient};
 use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
@@ -18,14 +18,21 @@ pub struct Publications<E: EVMClient + 'static> {
     evm_client: E,
     pg_pool: PgPool,
     gcs_client: GcsClient,
+    web3storage_client: Web3StorageClient,
 }
 
 impl<E: EVMClient + 'static> Publications<E> {
-    pub fn new(evm_client: E, pg_pool: PgPool, gcs_client: GcsClient) -> Self {
+    pub fn new(
+        evm_client: E,
+        pg_pool: PgPool,
+        gcs_client: GcsClient,
+        web3storage_client: Web3StorageClient,
+    ) -> Self {
         Self {
             evm_client,
             pg_pool,
             gcs_client,
+            web3storage_client,
         }
     }
 }
@@ -207,21 +214,41 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if rel.is_empty() {
             return Promise::err(Error::failed("relation is required".into()));
         }
-        let limit = args.get_limit();
-        let offset = args.get_offset();
+        let limit = args.get_limit() as i32;
+        let offset = args.get_offset() as i32;
 
-        let e = self.evm_client.clone();
+        let pg_pool = self.pg_pool.clone();
+        let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let deals = e
-                .deals(format!("{}.{}", ns, rel).as_str(), offset, limit)
-                .await?;
+            let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset).await?;
 
-            let mut deals_list = results.get().init_deals(deals.len() as u32);
-            for (i, d) in deals.iter().enumerate() {
+            let mut deals_list = results.get().init_deals(cids.len() as u32);
+
+            let futures = cids
+                .into_iter()
+                .map(|cid: String| {
+                    let client = web3storage_client.clone();
+                    async move {
+                        client
+                            .status_of_cid(&cid)
+                            .await
+                            .map_err(|e| Error::failed(e.to_string()))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let responses = futures::future::join_all(futures).await;
+
+            for (i, response) in responses.iter().enumerate() {
+                let status = response
+                    .as_ref()
+                    .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
-                builder.set_id(d.id);
-                builder.set_cid(d.cid.as_str().into());
-                builder.set_selector_path(d.selector_path.as_str().into());
+
+                builder.set_cid(status.cid.as_str().into());
+                builder.set_created(status.created.as_str().into());
+                builder.set_size(status.dag_size);
+                builder.set_archived(!status.deals.is_empty());
             }
 
             Ok(())
@@ -242,24 +269,40 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if rel.is_empty() {
             return Promise::err(Error::failed("relation is required".into()));
         }
-        let n = args.get_n();
+        let n = args.get_n() as i32;
 
-        let e = self.evm_client.clone();
+        let pg_pool = self.pg_pool.clone();
+        let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let deals = e
-                .latest_deals(format!("{}.{}", ns, rel).as_str(), n)
-                .await?;
+            let cids = db::pub_cids(&pg_pool, ns, rel, n, 0).await?;
 
-            let mut deals_list = results.get().init_deals(deals.len() as u32);
-            for (i, d) in deals.iter().enumerate() {
-                let mut di = deals_list.reborrow().get(i as u32);
-                di.set_id(d.id);
+            let mut deals_list = results.get().init_deals(cids.len() as u32);
 
-                let cid: &str = d.cid.as_str();
-                di.set_cid(cid.into());
+            let futures = cids
+                .into_iter()
+                .map(|cid: String| {
+                    let client = web3storage_client.clone();
+                    async move {
+                        client
+                            .status_of_cid(&cid)
+                            .await
+                            .map_err(|e| Error::failed(e.to_string()))
+                    }
+                })
+                .collect::<Vec<_>>();
 
-                let sp: &str = d.selector_path.as_str();
-                di.set_selector_path(sp.into());
+            let responses = futures::future::join_all(futures).await;
+
+            for (i, response) in responses.iter().enumerate() {
+                let status = response
+                    .as_ref()
+                    .map_err(|e| Error::failed(e.to_string()))?;
+                let mut builder = deals_list.reborrow().get(i as u32);
+
+                builder.set_cid(status.cid.as_str().into());
+                builder.set_created(status.created.as_str().into());
+                builder.set_size(status.dag_size);
+                builder.set_archived(!status.deals.is_empty());
             }
 
             Ok(())
@@ -351,12 +394,15 @@ pub async fn listen<E: EVMClient + 'static>(
     evm_client: E,
     pg_pool: PgPool,
     gcs_client: GcsClient,
+    web3storage_client: Web3StorageClient,
     tcp_listener: TcpListener,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let pubs_handler = Publications::new(evm_client, pg_pool, gcs_client);
+            let pubs_handler =
+                Publications::new(evm_client, pg_pool, gcs_client, web3storage_client);
             let pubs_client: publications::Client = capnp_rpc::new_client(pubs_handler);
+
             info!("RPC API started");
             loop {
                 let (stream, _) = tcp_listener.accept().await?;

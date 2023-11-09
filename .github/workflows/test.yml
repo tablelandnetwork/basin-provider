@@ -22,7 +22,7 @@ jobs:
         os:
           - ubuntu-latest
         toolchain:
-          - nightly
+          - stable
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
