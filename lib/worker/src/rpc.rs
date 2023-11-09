@@ -3,6 +3,7 @@ use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
 use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
+use chrono::prelude::NaiveDateTime;
 use ethers::types::Address;
 use futures::AsyncReadExt;
 use google_cloud_storage::http::objects::{
@@ -242,17 +243,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset, timestamp).await?;
+            let rows = db::pub_cids(&pg_pool, ns, rel, limit, offset, timestamp).await?;
 
-            let mut deals_list = results.get().init_deals(cids.len() as u32);
+            let mut deals_list = results.get().init_deals(rows.len() as u32);
 
-            let futures = cids
-                .into_iter()
-                .map(|cid: String| {
+            let futures = rows
+                .iter()
+                .map(|(cid, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(&cid)
+                            .status_of_cid(cid)
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -261,14 +262,24 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, response) in responses.iter().enumerate() {
+            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
+                let ts = match NaiveDateTime::from_timestamp_opt(timestamp, 0) {
+                    Some(ts) => ts,
+                    None => return Err(Error::failed("failed to convert timestamp".into())),
+                };
+
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_created(status.created.as_str().into());
+                builder.set_created(
+                    ts.format("%Y-%m-%d %H:%M:%S.%f")
+                        .to_string()
+                        .as_str()
+                        .into(),
+                );
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
             }
@@ -297,17 +308,16 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, n, 0, timestamp).await?;
+            let rows = db::pub_cids(&pg_pool, ns, rel, n, 0, timestamp).await?;
+            let mut deals_list = results.get().init_deals(rows.len() as u32);
 
-            let mut deals_list = results.get().init_deals(cids.len() as u32);
-
-            let futures = cids
-                .into_iter()
-                .map(|cid: String| {
+            let futures = rows
+                .iter()
+                .map(|(cid, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(&cid)
+                            .status_of_cid(cid)
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -316,14 +326,24 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, response) in responses.iter().enumerate() {
+            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
+                let ts = match NaiveDateTime::from_timestamp_opt(timestamp, 0) {
+                    Some(ts) => ts,
+                    None => return Err(Error::failed("failed to convert timestamp".into())),
+                };
+
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_created(status.created.as_str().into());
+                builder.set_created(
+                    ts.format("%Y-%m-%d %H:%M:%S.%f")
+                        .to_string()
+                        .as_str()
+                        .into(),
+                );
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
             }

@@ -69,7 +69,7 @@ pub async fn pub_cids(
     limit: i32,
     offset: i32,
     timestamp: i32,
-) -> Result<Vec<String>> {
+) -> Result<Vec<(String, i64)>> {
     let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &timestamp);
     let mut query = sqlx::query(&sql).bind(ns).bind(rel);
 
@@ -79,12 +79,17 @@ pub async fn pub_cids(
 
     let res = query.bind(limit).bind(offset).fetch_all(pool).await?;
 
-    let cids = res
+    let rows = res
         .iter()
-        .map(|row| multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")))
+        .map(|row| {
+            (
+                multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")),
+                row.get("timestamp"),
+            )
+        })
         .collect();
 
-    Ok(cids)
+    Ok(rows)
 }
 
 /// Runs sqlx query within a database transaction.
