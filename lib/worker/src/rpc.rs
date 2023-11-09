@@ -5,11 +5,15 @@ use capnp::{capability::Promise, Error};
 use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::types::Address;
 use futures::AsyncReadExt;
-use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
+use google_cloud_storage::http::objects::{
+    upload::{UploadObjectRequest, UploadType},
+    Object,
+};
 use google_cloud_storage::http::resumable_upload_client::{ChunkSize, ResumableUploadClient};
 use log::{debug, info};
 use sqlx::postgres::PgPool;
 use sqlx::{Pool, Postgres};
+use std::collections::HashMap;
 use tiny_keccak::{Hasher, Keccak};
 use tokio::net::TcpListener;
 
@@ -134,6 +138,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if size == 0 {
             return Promise::err(Error::failed("size is required".into()));
         }
+
+        let timestamp = args.get_timestamp();
+        if timestamp == 0 {
+            return Promise::err(Error::failed("timestamp is required".into()));
+        }
+
         let filename = format!(
             "{ns}/{rel}/{}.parquet",
             chrono::Utc::now().timestamp_micros()
@@ -148,7 +158,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 return Err(Error::failed("namespace not found".into()));
             }
 
-            let upload_type = UploadType::Simple(Media::new(filename.clone()));
+            let upload_type = UploadType::Multipart(Box::new(Object {
+                name: filename.clone(),
+                content_type: Some("application/octet-stream".into()),
+                size: size as i64,
+                metadata: Some(HashMap::from([(
+                    "timestamp".into(),
+                    format!("{}", timestamp),
+                )])),
+                ..Default::default()
+            }));
+
             let uploader = c
                 .inner
                 .prepare_resumable_upload(
@@ -217,10 +237,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let limit = args.get_limit() as i32;
         let offset = args.get_offset() as i32;
 
+        let timestamp = args.get_timestamp() as i32;
+
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset).await?;
+            let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset, timestamp).await?;
 
             let mut deals_list = results.get().init_deals(cids.len() as u32);
 
@@ -270,11 +292,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             return Promise::err(Error::failed("relation is required".into()));
         }
         let n = args.get_n() as i32;
+        let timestamp = args.get_timestamp() as i32;
 
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, n, 0).await?;
+            let cids = db::pub_cids(&pg_pool, ns, rel, n, 0, timestamp).await?;
 
             let mut deals_list = results.get().init_deals(cids.len() as u32);
 

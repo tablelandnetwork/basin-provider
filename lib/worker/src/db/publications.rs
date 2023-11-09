@@ -1,8 +1,11 @@
 use basin_common::errors::Result;
 use ethers::types::Address;
 use multibase::Base;
-use sqlx::postgres::{PgPool, PgQueryResult};
-use sqlx::Row;
+use sqlx::{
+    postgres::{PgPool, PgQueryResult},
+    query_builder::QueryBuilder,
+    Execute, Postgres, Row,
+};
 
 /// Creates a namespace for owner.
 /// Returns whether or not the namespace was created.
@@ -65,21 +68,16 @@ pub async fn pub_cids(
     rel: String,
     limit: i32,
     offset: i32,
+    timestamp: i32,
 ) -> Result<Vec<String>> {
-    let res = sqlx::query(
-        "SELECT cid FROM jobs 
-                                                JOIN namespaces ON namespaces.id = jobs.ns_id 
-                                                WHERE name=$1 AND relation = $2
-                                                ORDER BY jobs.id DESC
-                                                LIMIT $3
-                                                OFFSET $4",
-    )
-    .bind(ns)
-    .bind(rel)
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(pool)
-    .await?;
+    let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &timestamp);
+    let mut query = sqlx::query(&sql).bind(ns).bind(rel);
+
+    if timestamp > 0 {
+        query = query.bind(timestamp);
+    }
+
+    let res = query.bind(limit).bind(offset).fetch_all(pool).await?;
 
     let cids = res
         .iter()
@@ -95,4 +93,40 @@ async fn txn_execute(
     stmt: &str,
 ) -> sqlx::Result<PgQueryResult> {
     sqlx::query(stmt).execute(&mut **txn).await
+}
+
+fn pub_cids_build_query(ns: &str, rel: &str, limit: &i32, offset: &i32, timestamp: &i32) -> String {
+    let mut query: QueryBuilder<'_, Postgres> = QueryBuilder::new(
+        "SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = ",
+    );
+
+    query.push_bind(ns);
+    query.push(" AND relation = ");
+    query.push_bind(rel);
+
+    if *timestamp > 0 {
+        query.push(" AND timestamp = ");
+        query.push_bind(timestamp);
+    }
+
+    query.push(" ORDER BY jobs.id DESC LIMIT ");
+    query.push_bind(limit);
+    query.push(" OFFSET ");
+    query.push_bind(offset);
+
+    return query.build().sql().into();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pub_cids_query_building() {
+        let sql = pub_cids_build_query("ns", "rel", &1, &1, &0);
+        assert_eq!("SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
+
+        let sql = pub_cids_build_query("ns", "rel", &1, &1, &1699395131);
+        assert_eq!("SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp = $3 ORDER BY jobs.id DESC LIMIT $4 OFFSET $5", sql);
+    }
 }
