@@ -68,13 +68,18 @@ pub async fn pub_cids(
     rel: String,
     limit: i32,
     offset: i32,
-    timestamp: i32,
+    before: i64,
+    after: i64,
 ) -> Result<Vec<(String, i64)>> {
-    let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &timestamp);
+    let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &before, &after);
     let mut query = sqlx::query(&sql).bind(ns).bind(rel);
 
-    if timestamp > 0 {
-        query = query.bind(timestamp);
+    if after > 0 {
+        query = query.bind(after);
+    }
+
+    if before > 0 {
+        query = query.bind(before);
     }
 
     let res = query.bind(limit).bind(offset).fetch_all(pool).await?;
@@ -100,18 +105,30 @@ async fn txn_execute(
     sqlx::query(stmt).execute(&mut **txn).await
 }
 
-fn pub_cids_build_query(ns: &str, rel: &str, limit: &i32, offset: &i32, timestamp: &i32) -> String {
+fn pub_cids_build_query(
+    ns: &str,
+    rel: &str,
+    limit: &i32,
+    offset: &i32,
+    before: &i64,
+    after: &i64,
+) -> String {
     let mut query: QueryBuilder<'_, Postgres> = QueryBuilder::new(
-        "SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = ",
+        "SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = ",
     );
 
     query.push_bind(ns);
     query.push(" AND relation = ");
     query.push_bind(rel);
 
-    if *timestamp > 0 {
-        query.push(" AND timestamp = ");
-        query.push_bind(timestamp);
+    if *after > 0 {
+        query.push(" AND timestamp >= ");
+        query.push_bind(after);
+    }
+
+    if *before > 0 {
+        query.push(" AND timestamp <= ");
+        query.push_bind(before);
     }
 
     query.push(" ORDER BY jobs.id DESC LIMIT ");
@@ -128,10 +145,10 @@ mod tests {
 
     #[test]
     fn pub_cids_query_building() {
-        let sql = pub_cids_build_query("ns", "rel", &1, &1, &0);
-        assert_eq!("SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
+        let sql = pub_cids_build_query("ns", "rel", &1, &1, &0, &0);
+        assert_eq!("SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
 
-        let sql = pub_cids_build_query("ns", "rel", &1, &1, &1699395131);
-        assert_eq!("SELECT cid FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp = $3 ORDER BY jobs.id DESC LIMIT $4 OFFSET $5", sql);
+        let sql = pub_cids_build_query("ns", "rel", &1, &1, &1699395131, &1699395131);
+        assert_eq!("SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp >= $3 AND timestamp <= $4 ORDER BY jobs.id DESC LIMIT $5 OFFSET $6", sql);
     }
 }

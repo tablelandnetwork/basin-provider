@@ -155,13 +155,14 @@ async fn create_publication_and_list_works() {
             .await
             .unwrap();
 
-            // fetch correct timestamp
+            // fetch timestamp in range
             {
                 let mut deals_request = client.latest_deals_request();
                 deals_request.get().set_ns(ns.as_str().into());
                 deals_request.get().set_rel(rel.as_str().into());
                 deals_request.get().set_n(1);
-                deals_request.get().set_timestamp(1698763113);
+                deals_request.get().set_after(1698763112);
+                deals_request.get().set_before(1698763114);
 
                 let response = deals_request.send().promise.await.unwrap();
                 let deals = response.get().unwrap().get_deals().unwrap();
@@ -172,10 +173,7 @@ async fn create_publication_and_list_works() {
                     "bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
                     deals.get(0).get_cid().unwrap()
                 );
-                assert_eq!(
-                    "2023-10-27T20:08:24.015+00:00",
-                    deals.get(0).get_created().unwrap()
-                );
+                assert_eq!(1698763113, deals.get(0).get_timestamp());
                 assert!(deals.get(0).get_archived());
                 assert_eq!(380733, deals.get(0).get_size());
             }
@@ -186,7 +184,7 @@ async fn create_publication_and_list_works() {
                 deals_request.get().set_ns(ns.as_str().into());
                 deals_request.get().set_rel(rel.as_str().into());
                 deals_request.get().set_n(1);
-                deals_request.get().set_timestamp(169876315);
+                deals_request.get().set_after(1698763114);
 
                 let response = deals_request.send().promise.await.unwrap();
                 let deals = response.get().unwrap().get_deals().unwrap();

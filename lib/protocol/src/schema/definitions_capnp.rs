@@ -2574,15 +2574,8 @@ pub mod deal_info {
             self.reader.get_data_field::<u32>(0)
         }
         #[inline]
-        pub fn get_created(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
-            ::capnp::traits::FromPointerReader::get_from_pointer(
-                &self.reader.get_pointer_field(1),
-                ::core::option::Option::None,
-            )
-        }
-        #[inline]
-        pub fn has_created(&self) -> bool {
-            !self.reader.get_pointer_field(1).is_null()
+        pub fn get_timestamp(self) -> i64 {
+            self.reader.get_data_field::<i64>(1)
         }
         #[inline]
         pub fn get_archived(self) -> bool {
@@ -2596,8 +2589,8 @@ pub mod deal_info {
     impl<'a> ::capnp::traits::HasStructSize for Builder<'a> {
         const STRUCT_SIZE: ::capnp::private::layout::StructSize =
             ::capnp::private::layout::StructSize {
-                data: 1,
-                pointers: 2,
+                data: 2,
+                pointers: 1,
             };
     }
     impl<'a> ::capnp::traits::HasTypeId for Builder<'a> {
@@ -2704,23 +2697,12 @@ pub mod deal_info {
             self.builder.set_data_field::<u32>(0, value);
         }
         #[inline]
-        pub fn get_created(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
-            ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(1),
-                ::core::option::Option::None,
-            )
+        pub fn get_timestamp(self) -> i64 {
+            self.builder.get_data_field::<i64>(1)
         }
         #[inline]
-        pub fn set_created(&mut self, value: ::capnp::text::Reader<'_>) {
-            self.builder.reborrow().get_pointer_field(1).set_text(value);
-        }
-        #[inline]
-        pub fn init_created(self, size: u32) -> ::capnp::text::Builder<'a> {
-            self.builder.get_pointer_field(1).init_text(size)
-        }
-        #[inline]
-        pub fn has_created(&self) -> bool {
-            !self.builder.is_pointer_field_null(1)
+        pub fn set_timestamp(&mut self, value: i64) {
+            self.builder.set_data_field::<i64>(1, value);
         }
         #[inline]
         pub fn get_archived(self) -> bool {
@@ -2744,12 +2726,12 @@ pub mod deal_info {
     }
     impl Pipeline {}
     mod _private {
-        pub static ENCODED_NODE: [::capnp::Word; 80] = [
+        pub static ENCODED_NODE: [::capnp::Word; 81] = [
             ::capnp::word(0, 0, 0, 0, 5, 0, 6, 0),
             ::capnp::word(134, 40, 187, 117, 196, 247, 155, 198),
-            ::capnp::word(25, 0, 0, 0, 1, 0, 1, 0),
+            ::capnp::word(25, 0, 0, 0, 1, 0, 2, 0),
             ::capnp::word(219, 231, 182, 117, 39, 218, 73, 140),
-            ::capnp::word(2, 0, 7, 0, 0, 0, 0, 0),
+            ::capnp::word(1, 0, 7, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(21, 0, 0, 0, 18, 1, 0, 0),
             ::capnp::word(37, 0, 0, 0, 7, 0, 0, 0),
@@ -2781,17 +2763,17 @@ pub mod deal_info {
             ::capnp::word(2, 0, 0, 0, 1, 0, 0, 0),
             ::capnp::word(0, 0, 1, 0, 2, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(105, 0, 0, 0, 66, 0, 0, 0),
+            ::capnp::word(105, 0, 0, 0, 82, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(100, 0, 0, 0, 3, 0, 1, 0),
-            ::capnp::word(112, 0, 0, 0, 2, 0, 1, 0),
+            ::capnp::word(104, 0, 0, 0, 3, 0, 1, 0),
+            ::capnp::word(116, 0, 0, 0, 2, 0, 1, 0),
             ::capnp::word(3, 0, 0, 0, 32, 0, 0, 0),
             ::capnp::word(0, 0, 1, 0, 3, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(109, 0, 0, 0, 74, 0, 0, 0),
+            ::capnp::word(113, 0, 0, 0, 74, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(108, 0, 0, 0, 3, 0, 1, 0),
-            ::capnp::word(120, 0, 0, 0, 2, 0, 1, 0),
+            ::capnp::word(112, 0, 0, 0, 3, 0, 1, 0),
+            ::capnp::word(124, 0, 0, 0, 2, 0, 1, 0),
             ::capnp::word(99, 105, 100, 0, 0, 0, 0, 0),
             ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
@@ -2808,12 +2790,13 @@ pub mod deal_info {
             ::capnp::word(8, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(99, 114, 101, 97, 116, 101, 100, 0),
-            ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+            ::capnp::word(116, 105, 109, 101, 115, 116, 97, 109),
+            ::capnp::word(112, 0, 0, 0, 0, 0, 0, 0),
+            ::capnp::word(5, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
-            ::capnp::word(12, 0, 0, 0, 0, 0, 0, 0),
+            ::capnp::word(5, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(0, 0, 0, 0, 0, 0, 0, 0),
             ::capnp::word(97, 114, 99, 104, 105, 118, 101, 100),
@@ -2830,7 +2813,7 @@ pub mod deal_info {
             match index {
                 0 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
                 1 => <u32 as ::capnp::introspect::Introspect>::introspect(),
-                2 => <::capnp::text::Owned as ::capnp::introspect::Introspect>::introspect(),
+                2 => <i64 as ::capnp::introspect::Introspect>::introspect(),
                 3 => <bool as ::capnp::introspect::Introspect>::introspect(),
                 _ => panic!("invalid field index {}", index),
             }
