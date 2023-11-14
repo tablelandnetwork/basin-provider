@@ -3,7 +3,6 @@ services:
     image: basin_worker:latest
     depends_on:
       - crdb
-      - exporter
     ports:
       - 3000:3000
       - 3001:3001
@@ -18,22 +17,9 @@ services:
       --bind-address=0.0.0.0:3000
       --bind-health-address=0.0.0.0:3001
       -vvvvv
-  exporter:
-    image: basin_exporter:latest
-    depends_on:
-      - crdb
-    ports:
-      - 3002:3001
-    command: >
-      --export-bucket=${EXPORT_BUCKET}
-      --export-credentials=${EXPORT_CREDENTIALS}
-      --database-url=${DATABASE_URL}
-      --export-schedule="${EXPORT_SCHEDULE}"
-      --bind-health-address=0.0.0.0:3001
-      -vvvvv
   crdb:
     image: cockroachdb/cockroach:v23.1.9
     ports:
       - 26257:26257
       - 8080:8080
-    command: start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=localhost
+    command: start-single-node --insecure --store=type=mem,size=0.5 --advertise-addr=localhost

@@ -1,11 +1,7 @@
 use basin_common::errors::Result;
 use ethers::types::Address;
 use multibase::Base;
-use sqlx::{
-    postgres::{PgPool, PgQueryResult},
-    query_builder::QueryBuilder,
-    Execute, Postgres, Row,
-};
+use sqlx::{postgres::PgPool, query_builder::QueryBuilder, Execute, Postgres, Row};
 
 /// Creates a namespace for owner.
 /// Returns whether or not the namespace was created.
@@ -46,21 +42,6 @@ pub async fn is_namespace_owner(pool: &PgPool, ns: &str, owner: Address) -> Resu
     Ok(!res.is_empty())
 }
 
-/// Creates a data table and scheduled changefeed for pub.
-pub async fn pub_table_create(pool: &PgPool, table_stmt: &str) -> Result<()> {
-    sqlx::query(table_stmt).execute(pool).await?;
-    Ok(())
-}
-
-/// Inserts data into a pub table.
-pub async fn pub_table_insert(pool: &PgPool, stmts: Vec<String>) -> Result<()> {
-    let mut txn = pool.begin().await?;
-    for s in stmts {
-        txn_execute(&mut txn, &s).await?;
-    }
-    Ok(txn.commit().await?)
-}
-
 // Lists cids of a given publication
 pub async fn pub_cids(
     pool: &PgPool,
@@ -95,14 +76,6 @@ pub async fn pub_cids(
         .collect();
 
     Ok(rows)
-}
-
-/// Runs sqlx query within a database transaction.
-async fn txn_execute(
-    txn: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    stmt: &str,
-) -> sqlx::Result<PgQueryResult> {
-    sqlx::query(stmt).execute(&mut **txn).await
 }
 
 fn pub_cids_build_query(

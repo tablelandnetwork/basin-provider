@@ -44,7 +44,6 @@ tokio-util = { workspace = true }
 warp = { workspace = true }
 
 [dev-dependencies]
-basin_exporter = { path = "../exporter" }
 wiremock = "0.5"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]

@@ -353,23 +353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "basin_exporter"
-version = "0.1.0"
-dependencies = [
- "basin_common",
- "chrono",
- "clap",
- "futures",
- "jemallocator",
- "log",
- "sqlx",
- "stderrlog",
- "tokio",
- "tokio-cron-scheduler",
- "warp",
-]
-
-[[package]]
 name = "basin_protocol"
 version = "0.1.0"
 dependencies = [
@@ -387,7 +370,6 @@ dependencies = [
  "base64 0.21.4",
  "basin_common",
  "basin_evm",
- "basin_exporter",
  "basin_protocol",
  "capnp",
  "capnp-rpc",
@@ -630,7 +612,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-targets",
 ]
@@ -829,17 +810,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "cron"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff76b51e4c068c52bfd2866e1567bee7c567ae8f24ada09fd4307019e25eab7"
-dependencies = [
- "chrono",
- "nom",
- "once_cell",
 ]
 
 [[package]]
@@ -1233,7 +1203,7 @@ dependencies = [
  "sha2",
  "sha3",
  "thiserror",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -2714,17 +2684,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-derive"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3933,15 +3892,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "signature"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4537,25 +4487,9 @@ dependencies = [
  "num_cpus",
  "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2 0.5.3",
  "tokio-macros",
  "windows-sys",
-]
-
-[[package]]
-name = "tokio-cron-scheduler"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de2c1fd54a857b29c6cd1846f31903d0ae8e28175615c14a277aed45c58d8e27"
-dependencies = [
- "chrono",
- "cron",
- "num-derive",
- "num-traits",
- "tokio",
- "tracing",
- "uuid 1.4.1",
 ]
 
 [[package]]
@@ -4891,15 +4825,6 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom 0.2.10",
  "serde",
-]
-
-[[package]]
-name = "uuid"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
-dependencies = [
- "getrandom 0.2.10",
 ]
 
 [[package]]

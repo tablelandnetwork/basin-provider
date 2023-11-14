@@ -3,14 +3,13 @@ use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
 use basin_protocol::publications;
 use basin_worker::{
-    gcs::GcsClient, rpc, utils, web3storage::Web3StorageClient, web3storage::DEFAULT_BASE_URL,
+    gcs::GcsClient, rpc, web3storage::Web3StorageClient, web3storage::DEFAULT_BASE_URL,
 };
-use capnp::capability::Request;
+
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::{
     core::rand::{thread_rng, Rng},
     signers::{LocalWallet, Signer},
-    utils::keccak256,
 };
 use futures::AsyncReadExt;
 use secp256k1::{Message, Secp256k1, SecretKey};
@@ -51,19 +50,6 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
     });
     sleep(Duration::from_millis(5_000)).await;
     bind_addr
-}
-
-async fn spawn_exporter(pool: PgPool) {
-    spawn_local(async {
-        basin_exporter::start(
-            pool,
-            std::env::var("EXPORT_BUCKET").unwrap(),
-            std::env::var("EXPORT_CREDENTIALS").unwrap(),
-            &std::env::var("EXPORT_SCHEDULE").unwrap(),
-        )
-        .await
-        .unwrap()
-    });
 }
 
 async fn get_client(worker_address: SocketAddr) -> publications::Client {
@@ -198,63 +184,6 @@ async fn create_publication_and_list_works() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn push_publication_works() {
-    let local = LocalSet::new();
-    local
-        .run_until(async {
-            let db_name = rand_str(8);
-            let (pool, db_url) = get_pg_pool(db_name).await;
-            db::setup(pool.clone(), &db_url).await.unwrap();
-
-            let worker_address = spawn_worker(pool.clone()).await;
-            spawn_exporter(pool.clone()).await;
-            let client = get_client(worker_address).await;
-
-            let wallet = LocalWallet::new(&mut thread_rng());
-            let ns = rand_str(12);
-            let rel = rand_str(12);
-
-            let mut request = client.create_request();
-            request.get().set_ns(ns.as_str().into());
-            request.get().set_rel(rel.as_str().into());
-            request.get().set_owner(wallet.address().as_bytes());
-            let mut cols = request.get().init_schema().init_columns(3);
-            {
-                let mut c = cols.reborrow().get(0);
-                c.set_name("id".into());
-                c.set_type("SERIAL".into());
-                c.set_is_nullable(false);
-                c.set_is_part_of_primary_key(true);
-            }
-            {
-                let mut c = cols.reborrow().get(1);
-                c.set_name("msg".into());
-                c.set_type("TEXT".into());
-                c.set_is_nullable(true);
-                c.set_is_part_of_primary_key(false);
-            }
-            {
-                let mut c = cols.reborrow().get(2);
-                c.set_name("val".into());
-                c.set_type("REAL".into());
-                c.set_is_nullable(true);
-                c.set_is_part_of_primary_key(false);
-            }
-            request.send().promise.await.unwrap();
-
-            let mut request = client.push_request();
-            request.get().set_ns(ns.as_str().into());
-            request.get().set_rel(rel.as_str().into());
-            rand_records(&mut request, wallet, 10);
-
-            request.send().promise.await.unwrap();
-
-            db::drop(pool.clone(), &db_url).await.unwrap();
-        })
-        .await;
-}
-
-#[tokio::test(flavor = "current_thread")]
 async fn upload_publication_works() {
     let local = LocalSet::new();
     local
@@ -317,50 +246,6 @@ async fn upload_publication_works() {
             db::drop(pool.clone(), &db_url).await.unwrap();
         })
         .await;
-}
-
-fn rand_records(
-    req: &mut Request<publications::push_params::Owned, publications::push_results::Owned>,
-    wallet: LocalWallet,
-    num: u32,
-) {
-    let secp = Secp256k1::new();
-    let pk = SecretKey::from_slice(&wallet.signer().to_bytes()).unwrap();
-
-    let mut recs = req.get().init_tx().init_records(num);
-    for i in 0..num {
-        let mut r = recs.reborrow().get(i);
-        r.set_action("I".into());
-        let mut cols = r.init_columns(3);
-        {
-            let mut c = cols.reborrow().get(0);
-            c.set_name("id".into());
-            let id = i + 1;
-            c.set_value(serde_json::to_string(&id).unwrap().as_bytes());
-        }
-        {
-            let mut c = cols.reborrow().get(1);
-            c.set_name("msg".into());
-            let m = rand_str(16);
-            c.set_value(serde_json::to_string(&m).unwrap().as_bytes());
-        }
-        {
-            let mut c = cols.reborrow().get(2);
-            c.set_name("val".into());
-            let mut rng = thread_rng();
-            let v = rng.gen::<f64>();
-            c.set_value(serde_json::to_string(&v).unwrap().as_bytes());
-        }
-    }
-
-    let tx = utils::canonicalize_tx(req.get().get_tx().unwrap().reborrow_as_reader()).unwrap();
-    let hash = keccak256(tx);
-    let msg = Message::from_slice(&hash).unwrap();
-    let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();
-    let mut sigb = Vec::with_capacity(65);
-    sigb.extend_from_slice(&sig);
-    sigb.push(rid.to_i32() as u8);
-    req.get().set_sig(&sigb);
 }
 
 fn rand_str(l: usize) -> String {
