@@ -89,7 +89,7 @@ pub async fn pub_cids(
         .map(|row| {
             (
                 multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")),
-                row.get("timestamp"),
+                row.try_get("timestamp").unwrap_or(0),
             )
         })
         .collect();
