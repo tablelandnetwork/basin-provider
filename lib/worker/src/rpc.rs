@@ -5,11 +5,15 @@ use capnp::{capability::Promise, Error};
 use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
 use ethers::types::Address;
 use futures::AsyncReadExt;
-use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
+use google_cloud_storage::http::objects::{
+    upload::{UploadObjectRequest, UploadType},
+    Object,
+};
 use google_cloud_storage::http::resumable_upload_client::{ChunkSize, ResumableUploadClient};
 use log::{debug, info};
 use sqlx::postgres::PgPool;
 use sqlx::{Pool, Postgres};
+use std::collections::HashMap;
 use tiny_keccak::{Hasher, Keccak};
 use tokio::net::TcpListener;
 
@@ -134,6 +138,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if size == 0 {
             return Promise::err(Error::failed("size is required".into()));
         }
+
+        let timestamp = args.get_timestamp();
+        if timestamp == 0 {
+            return Promise::err(Error::failed("timestamp is required".into()));
+        }
+
         let filename = format!(
             "{ns}/{rel}/{}.parquet",
             chrono::Utc::now().timestamp_micros()
@@ -148,7 +158,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 return Err(Error::failed("namespace not found".into()));
             }
 
-            let upload_type = UploadType::Simple(Media::new(filename.clone()));
+            let upload_type = UploadType::Multipart(Box::new(Object {
+                name: filename.clone(),
+                content_type: Some("application/octet-stream".into()),
+                size: size as i64,
+                metadata: Some(HashMap::from([(
+                    "timestamp".into(),
+                    format!("{}", timestamp),
+                )])),
+                ..Default::default()
+            }));
+
             let uploader = c
                 .inner
                 .prepare_resumable_upload(
@@ -217,20 +237,23 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let limit = args.get_limit() as i32;
         let offset = args.get_offset() as i32;
 
+        let before = args.get_before();
+        let after = args.get_after();
+
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, limit, offset).await?;
+            let rows = db::pub_cids(&pg_pool, ns, rel, limit, offset, before, after).await?;
 
-            let mut deals_list = results.get().init_deals(cids.len() as u32);
+            let mut deals_list = results.get().init_deals(rows.len() as u32);
 
-            let futures = cids
-                .into_iter()
-                .map(|cid: String| {
+            let futures = rows
+                .iter()
+                .map(|(cid, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(&cid)
+                            .status_of_cid(cid)
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -239,14 +262,14 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, response) in responses.iter().enumerate() {
+            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_created(status.created.as_str().into());
+                builder.set_timestamp(timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
             }
@@ -270,21 +293,22 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             return Promise::err(Error::failed("relation is required".into()));
         }
         let n = args.get_n() as i32;
+        let before = args.get_before();
+        let after = args.get_after();
 
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let cids = db::pub_cids(&pg_pool, ns, rel, n, 0).await?;
+            let rows = db::pub_cids(&pg_pool, ns, rel, n, 0, before, after).await?;
+            let mut deals_list = results.get().init_deals(rows.len() as u32);
 
-            let mut deals_list = results.get().init_deals(cids.len() as u32);
-
-            let futures = cids
-                .into_iter()
-                .map(|cid: String| {
+            let futures = rows
+                .iter()
+                .map(|(cid, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(&cid)
+                            .status_of_cid(cid)
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -293,14 +317,14 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, response) in responses.iter().enumerate() {
+            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_created(status.created.as_str().into());
+                builder.set_timestamp(timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
             }

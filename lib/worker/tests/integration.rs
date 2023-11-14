@@ -149,29 +149,48 @@ async fn create_publication_and_list_works() {
                 ns.as_str(),
                 rel.as_str(),
                 data,
-                chrono::NaiveDateTime::from_timestamp_millis(1698763113).unwrap(),
+                chrono::NaiveDateTime::from_timestamp_millis(1699475142).unwrap(),
+                1698763113,
             )
             .await
             .unwrap();
 
-            let mut deals_request = client.latest_deals_request();
-            deals_request.get().set_ns(ns.as_str().into());
-            deals_request.get().set_rel(rel.as_str().into());
-            deals_request.get().set_n(1);
+            // fetch timestamp in range
+            {
+                let mut deals_request = client.latest_deals_request();
+                deals_request.get().set_ns(ns.as_str().into());
+                deals_request.get().set_rel(rel.as_str().into());
+                deals_request.get().set_n(1);
+                deals_request.get().set_after(1698763112);
+                deals_request.get().set_before(1698763114);
 
-            let response = deals_request.send().promise.await.unwrap();
-            let deals = response.get().unwrap().get_deals().unwrap();
+                let response = deals_request.send().promise.await.unwrap();
+                let deals = response.get().unwrap().get_deals().unwrap();
 
-            assert_eq!(
-                "bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
-                deals.get(0).get_cid().unwrap()
-            );
-            assert_eq!(
-                "2023-10-27T20:08:24.015+00:00",
-                deals.get(0).get_created().unwrap()
-            );
-            assert!(deals.get(0).get_archived());
-            assert_eq!(380733, deals.get(0).get_size());
+                assert_eq!(1, deals.len());
+
+                assert_eq!(
+                    "bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
+                    deals.get(0).get_cid().unwrap()
+                );
+                assert_eq!(1698763113, deals.get(0).get_timestamp());
+                assert!(deals.get(0).get_archived());
+                assert_eq!(380733, deals.get(0).get_size());
+            }
+
+            // fetch wrong timestamp
+            {
+                let mut deals_request = client.latest_deals_request();
+                deals_request.get().set_ns(ns.as_str().into());
+                deals_request.get().set_rel(rel.as_str().into());
+                deals_request.get().set_n(1);
+                deals_request.get().set_after(1698763114);
+
+                let response = deals_request.send().promise.await.unwrap();
+                let deals = response.get().unwrap().get_deals().unwrap();
+
+                assert_eq!(0, deals.len());
+            }
 
             db::drop(pool.clone(), &db_url).await.unwrap();
         })
@@ -265,6 +284,7 @@ async fn upload_publication_works() {
             request.get().set_ns(ns.as_str().into());
             request.get().set_rel(rel.as_str().into());
             request.get().set_size(size as u64);
+            request.get().set_timestamp(1699472234);
 
             let callback = request.send().pipeline.get_callback();
 
@@ -384,13 +404,15 @@ async fn pub_jobs_insert(
     rel: &str,
     cid: Vec<u8>,
     activated: chrono::NaiveDateTime,
+    timestamp: i64,
 ) -> Result<()> {
     sqlx::query!(
-        "INSERT INTO jobs (ns_id, cid, relation, activated) SELECT id, $2, $3, $4 FROM namespaces WHERE name = $1",
+        "INSERT INTO jobs (ns_id, cid, relation, activated, timestamp) SELECT id, $2, $3, $4, $5 FROM namespaces WHERE name = $1",
         ns,
         cid,
         rel,
         activated,
+        timestamp
     )
     .execute(pool)
     .await?;
