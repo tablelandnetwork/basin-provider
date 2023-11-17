@@ -1,4 +1,0 @@
-ignore = [
-    "lib/protocol/src",
-    "lib/evm/src/contract.rs",
-]
