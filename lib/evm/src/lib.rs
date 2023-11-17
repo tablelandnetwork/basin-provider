@@ -1,5 +1,5 @@
 mod client;
-#[allow(clippy::all)]
+#[rustfmt::skip]
 mod contract;
 pub mod testing;
 
