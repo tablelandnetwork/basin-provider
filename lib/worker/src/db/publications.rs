@@ -1,26 +1,48 @@
 use basin_common::errors::Result;
 use ethers::types::Address;
 use multibase::Base;
-use sqlx::{postgres::PgPool, query_builder::QueryBuilder, Execute, Postgres, Row};
+use sqlx::{
+    postgres::PgPool, query_builder::QueryBuilder, types::chrono::NaiveDateTime, Execute, Postgres,
+    Row,
+};
 
 /// Creates a namespace for owner.
 /// Returns whether or not the namespace was created.
-pub async fn namespace_create(pool: &PgPool, ns: &str, owner: Address) -> Result<bool> {
+pub async fn namespace_create(
+    pool: &PgPool,
+    ns: &str,
+    rel: &str,
+    cache_duration: Option<i64>,
+    owner: Address,
+) -> Result<bool> {
     // Insert a new namespace for owner
-    let insert = sqlx::query!(
-        "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
+    let record = sqlx::query!(
+        "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id",
         ns,
         owner.as_bytes()
     )
-    .execute(pool)
+    .fetch_optional(pool)
     .await?;
 
     // Create schema for the namespace
-    sqlx::query(&format!("CREATE SCHEMA IF NOT EXISTS {ns}"))
+    sqlx::query::<Postgres>(&format!("CREATE SCHEMA IF NOT EXISTS {ns}"))
         .execute(pool)
         .await?;
 
-    Ok(insert.rows_affected() != 0)
+    if record.is_some() {
+        sqlx::query!(
+            "INSERT INTO cache_config (ns_id, relation, duration) VALUES ($1, $2, $3)",
+            record.unwrap().id,
+            rel,
+            cache_duration,
+        )
+        .execute(pool)
+        .await?;
+
+        return Ok(true);
+    }
+
+    Ok(false)
 }
 
 /// Returns whether or not the namespace exists.
@@ -42,6 +64,24 @@ pub async fn is_namespace_owner(pool: &PgPool, ns: &str, owner: Address) -> Resu
     Ok(!res.is_empty())
 }
 
+/// Returns cache config
+pub async fn get_cache_config(pool: &PgPool, ns: &str, rel: &str) -> Result<Option<i64>> {
+    let (duration, ) : (Option<i64>, ) = sqlx::query_as("SELECT duration FROM cache_config JOIN namespaces ON ns_id = namespaces.id WHERE name = $1 AND relation = $2")
+        .bind(ns)
+        .bind(rel)
+        .fetch_one(pool)
+        .await?;
+    Ok(duration)
+}
+
+// Unsets cache_path and expires_at
+pub async fn delete_expired_job(pool: &PgPool) -> Result<()> {
+    sqlx::query!("UPDATE jobs SET expires_at = null, cache_path = null WHERE now() at time zone 'utc' >= expires_at;")
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 // Lists cids of a given publication
 pub async fn pub_cids(
     pool: &PgPool,
@@ -51,7 +91,7 @@ pub async fn pub_cids(
     offset: i32,
     before: i64,
     after: i64,
-) -> Result<Vec<(String, i64)>> {
+) -> Result<Vec<(String, i64, Option<NaiveDateTime>)>> {
     let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &before, &after);
     let mut query = sqlx::query(&sql).bind(ns).bind(rel);
 
@@ -71,6 +111,7 @@ pub async fn pub_cids(
             (
                 multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")),
                 row.try_get("timestamp").unwrap_or(0),
+                row.try_get("expires_at").ok(),
             )
         })
         .collect();
@@ -87,7 +128,7 @@ fn pub_cids_build_query(
     after: &i64,
 ) -> String {
     let mut query: QueryBuilder<'_, Postgres> = QueryBuilder::new(
-        "SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = ",
+        "SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = ",
     );
 
     query.push_bind(ns);
@@ -119,9 +160,9 @@ mod tests {
     #[test]
     fn pub_cids_query_building() {
         let sql = pub_cids_build_query("ns", "rel", &1, &1, &0, &0);
-        assert_eq!("SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
+        assert_eq!("SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
 
         let sql = pub_cids_build_query("ns", "rel", &1, &1, &1699395131, &1699395131);
-        assert_eq!("SELECT cid, timestamp FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp >= $3 AND timestamp <= $4 ORDER BY jobs.id DESC LIMIT $5 OFFSET $6", sql);
+        assert_eq!("SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp >= $3 AND timestamp <= $4 ORDER BY jobs.id DESC LIMIT $5 OFFSET $6", sql);
     }
 }

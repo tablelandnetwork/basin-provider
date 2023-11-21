@@ -97,6 +97,7 @@ async fn create_publication_and_list_works() {
             request.get().set_ns(ns.as_str().into());
             request.get().set_rel(rel.as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
+            request.get().set_cache_duration(0);
 
             let mut cols = request.get().init_schema().init_columns(1);
             {
@@ -206,6 +207,7 @@ async fn upload_publication_works() {
             request.get().set_ns(ns.as_str().into());
             request.get().set_rel(rel.as_str().into());
             request.get().set_owner(wallet.address().as_bytes());
+            request.get().set_cache_duration(0);
             request.send().promise.await.unwrap();
 
             let size = 16 * 1024 * 1024 + 256;

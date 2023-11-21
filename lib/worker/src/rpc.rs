@@ -61,6 +61,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         if owner.is_zero() {
             return Promise::err(Error::failed("owner is required".into()));
         }
+
+        let cache_duration = if args.get_cache_duration() > 0 {
+            Some(args.get_cache_duration())
+        } else {
+            None
+        };
         let name = format!("{ns}.{rel}");
 
         info!("publication {name} create for {owner}");
@@ -69,7 +75,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let e = self.evm_client.clone();
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
-            let created = db::namespace_create(&p, &ns, owner).await?;
+            let created = db::namespace_create(&p, &ns, &rel, cache_duration, owner).await?;
             results.get().set_exists(!created);
             Ok(())
         })
@@ -114,14 +120,22 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 return Err(Error::failed("namespace not found".into()));
             }
 
+            let cache_duration = db::get_cache_config(&p, &ns, &rel).await?;
+
             let upload_type = UploadType::Multipart(Box::new(Object {
                 name: filename.clone(),
                 content_type: Some("application/octet-stream".into()),
                 size: size as i64,
-                metadata: Some(HashMap::from([(
-                    "timestamp".into(),
-                    format!("{}", timestamp),
-                )])),
+                metadata: Some(HashMap::from([
+                    ("timestamp".into(), format!("{}", timestamp)),
+                    (
+                        "cache_duration".into(),
+                        match cache_duration {
+                            Some(i) => format!("{}", i),
+                            None => "".into(),
+                        },
+                    ),
+                ])),
                 ..Default::default()
             }));
 
@@ -205,7 +219,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let futures = rows
                 .iter()
-                .map(|(cid, _)| {
+                .map(|(cid, _, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
@@ -218,7 +232,9 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
+            for (i, (response, (_, timestamp, expires_at))) in
+                std::iter::zip(responses, rows).enumerate()
+            {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
@@ -228,6 +244,13 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 builder.set_timestamp(timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
+
+                if let Some(dt) = expires_at {
+                    builder
+                        .set_expires_at(dt.format("%Y-%m-%d %H:%M:%S").to_string().as_str().into())
+                } else {
+                    builder.set_expires_at("".into())
+                }
             }
 
             Ok(())
@@ -260,7 +283,7 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let futures = rows
                 .iter()
-                .map(|(cid, _)| {
+                .map(|(cid, _, _)| {
                     let client = web3storage_client.clone();
                     async move {
                         client
@@ -273,7 +296,9 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, (response, (_, timestamp))) in std::iter::zip(responses, rows).enumerate() {
+            for (i, (response, (_, timestamp, expires_at))) in
+                std::iter::zip(responses, rows).enumerate()
+            {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
@@ -283,6 +308,12 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
                 builder.set_timestamp(timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
+                if let Some(dt) = expires_at {
+                    builder
+                        .set_expires_at(dt.format("%Y-%m-%d %H:%M:%S").to_string().as_str().into())
+                } else {
+                    builder.set_expires_at("".into())
+                }
             }
 
             Ok(())

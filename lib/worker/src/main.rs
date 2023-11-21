@@ -15,6 +15,9 @@ use std::net::SocketAddr;
 use stderrlog::Timestamp;
 use warp::Filter;
 
+use std::time::Duration;
+use tokio::{task, time}; // 1.
+
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
@@ -104,6 +107,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&args.database_url).await?;
     db::setup(pg_pool.clone(), &args.database_url).await?;
+
+    let pool = pg_pool.clone();
+    task::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(60));
+
+        loop {
+            interval.tick().await;
+            let _ = basin_worker::db::delete_expired_job(&pool).await;
+        }
+    });
 
     let gcs_client = GcsClient::new(args.export_bucket, args.export_credentials).await?;
     let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
