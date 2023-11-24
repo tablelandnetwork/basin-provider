@@ -70,7 +70,8 @@ pub async fn get_cache_config(pool: &PgPool, ns: &str, rel: &str) -> Result<Opti
         .bind(ns)
         .bind(rel)
         .fetch_one(pool)
-        .await?;
+        .await
+        .unwrap_or((None, ));
     Ok(duration)
 }
 
