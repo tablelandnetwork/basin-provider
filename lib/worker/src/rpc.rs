@@ -1,4 +1,4 @@
-use crate::{crypto, db, gcs::GcsClient, web3storage::Web3StorageClient};
+use crate::{crypto, db, domain::Vault, gcs::GcsClient, web3storage::Web3StorageClient};
 use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
@@ -213,17 +213,18 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let rows = db::pub_cids(&pg_pool, ns, rel, limit, offset, before, after).await?;
+            let vault = Vault::from(format!("{}.{}", ns, rel)).unwrap();
+            let rows = db::pub_cids(&pg_pool, &vault, limit, offset, before, after).await?;
 
             let mut deals_list = results.get().init_deals(rows.len() as u32);
 
             let futures = rows
                 .iter()
-                .map(|(cid, _, _)| {
+                .map(|deal_info| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(cid)
+                            .status_of_cid(deal_info.cid.as_str())
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -232,20 +233,18 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, (response, (_, timestamp, expires_at))) in
-                std::iter::zip(responses, rows).enumerate()
-            {
+            for (i, (response, deal_info)) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_timestamp(timestamp);
+                builder.set_timestamp(deal_info.timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
 
-                if let Some(dt) = expires_at {
+                if let Some(dt) = deal_info.cache_expiry {
                     builder
                         .set_expires_at(dt.format("%Y-%m-%d %H:%M:%S").to_string().as_str().into())
                 } else {
@@ -278,16 +277,17 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         let pg_pool = self.pg_pool.clone();
         let web3storage_client = self.web3storage_client.clone();
         Promise::from_future(async move {
-            let rows = db::pub_cids(&pg_pool, ns, rel, n, 0, before, after).await?;
+            let vault = Vault::from(format!("{}.{}", ns, rel)).unwrap();
+            let rows = db::pub_cids(&pg_pool, &vault, n, 0, before, after).await?;
             let mut deals_list = results.get().init_deals(rows.len() as u32);
 
             let futures = rows
                 .iter()
-                .map(|(cid, _, _)| {
+                .map(|deal_info| {
                     let client = web3storage_client.clone();
                     async move {
                         client
-                            .status_of_cid(cid)
+                            .status_of_cid(deal_info.cid.as_str())
                             .await
                             .map_err(|e| Error::failed(e.to_string()))
                     }
@@ -296,19 +296,18 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let responses = futures::future::join_all(futures).await;
 
-            for (i, (response, (_, timestamp, expires_at))) in
-                std::iter::zip(responses, rows).enumerate()
-            {
+            for (i, (response, deal_info)) in std::iter::zip(responses, rows).enumerate() {
                 let status = response
                     .as_ref()
                     .map_err(|e| Error::failed(e.to_string()))?;
                 let mut builder = deals_list.reborrow().get(i as u32);
 
                 builder.set_cid(status.cid.as_str().into());
-                builder.set_timestamp(timestamp);
+                builder.set_timestamp(deal_info.timestamp);
                 builder.set_size(status.dag_size);
                 builder.set_archived(!status.deals.is_empty());
-                if let Some(dt) = expires_at {
+
+                if let Some(dt) = deal_info.cache_expiry {
                     builder
                         .set_expires_at(dt.format("%Y-%m-%d %H:%M:%S").to_string().as_str().into())
                 } else {
