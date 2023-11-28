@@ -12,7 +12,13 @@ use ethers::types::Address;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
 use serde::Deserialize;
+use serde::Serialize;
 use sqlx::PgPool;
+
+#[derive(Serialize)]
+struct ErrorResponse<'a> {
+    error: &'a str,
+}
 
 pub async fn find_record_by_id(
     path: web::Path<String>,
@@ -21,17 +27,20 @@ pub async fn find_record_by_id(
 ) -> HttpResponse {
     let cid: Cid = match path.try_into() {
         Ok(v) => v,
-        Err(err) => return HttpResponse::BadRequest().json(format!("{{\"error\": \"{}\"}}", err)),
+        Err(err) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: err.as_str(),
+            })
+        }
     };
 
     let cache_path = match db::find_job_cache_path_by_cid(&pool, cid).await {
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(format!(
-                "{{\"error\": \"{}\"}}",
-                "error fetching the record"
-            ));
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "error fetching the record",
+            });
         }
     };
 
@@ -54,10 +63,9 @@ pub async fn find_record_by_id(
         Ok(s) => s,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::InternalServerError().json(format!(
-                "{{\"error\": \"{}\"}}",
-                "failed to download record"
-            ));
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: "failed to download cid",
+            });
         }
     };
 
@@ -81,15 +89,18 @@ pub async fn find_vaults_by_account<E: EVMClient + 'static + std::marker::Sync>(
     let account = match Address::from_str(params.account.as_str()) {
         Ok(v) => v,
         Err(_) => {
-            return HttpResponse::BadRequest()
-                .json(format!("{{\"error\": \"{}\"}}", "account is invalid"));
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "account is invalid",
+            });
         }
     };
 
     let vaults = match evm_client.list_pub(account).await {
         Ok(vaults) => vaults,
         Err(err) => {
-            return HttpResponse::BadRequest().json(format!("{{\"error\": \"{}\"}}", err));
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: err.to_string().as_str(),
+            });
         }
     };
 
@@ -108,7 +119,11 @@ pub async fn find_records_by_pub_id(
 ) -> HttpResponse {
     let vault: Vault = match path.try_into() {
         Ok(p) => p,
-        Err(err) => return HttpResponse::BadRequest().json(format!("{{\"error\": \"{}\"}}", err)),
+        Err(err) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: err.as_str(),
+            })
+        }
     };
 
     let records = match db::pub_cids(
@@ -123,8 +138,9 @@ pub async fn find_records_by_pub_id(
     {
         Ok(records) => records,
         Err(_) => {
-            return HttpResponse::InternalServerError()
-                .json(format!("{{\"error\": \"{}\"}}", "Failed to fetch deals"))
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: "failed to fetch deals",
+            })
         }
     };
 
