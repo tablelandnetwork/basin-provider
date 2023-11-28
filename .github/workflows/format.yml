@@ -57,6 +57,5 @@ jobs:
        run: |
          cargo tomlfmt --dryrun
          (cd ./lib/evm; cargo tomlfmt --dryrun)
-         (cd ./lib/exporter; cargo tomlfmt --dryrun)
          (cd ./lib/protocol; cargo tomlfmt --dryrun)
          (cd ./lib/worker; cargo tomlfmt --dryrun)

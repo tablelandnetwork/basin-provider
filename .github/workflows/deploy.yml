@@ -103,18 +103,6 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
           build-args: CRATE=basin_worker
 
-      - name: Build and push exporter
-        uses: docker/build-push-action@v5
-        with:
-            context: ./
-            file: ./Dockerfile
-            builder: ${{ steps.buildx.outputs.name }}
-            push: true
-            tags: ${{ env.CONTAINER_REGISTRY }}/${{ secrets.GCP_PROJECT }}/textile/basin/basin_exporter:sha-${{ env.SHA_SHORT }}
-            cache-from: type=local,src=/tmp/.buildx-cache
-            cache-to: type=local,dest=/tmp/.buildx-cache
-            build-args: CRATE=basin_exporter
-
       - name: Get GKE Credentials
         uses: 'google-github-actions/get-gke-credentials@v1'
         with:
@@ -124,4 +112,4 @@ jobs:
       - name: Deploy to GKE
         working-directory: ./k8s
         run: |
-          DEPLOYMENT=$DEPLOYMENT IMAGE_BASIN_WORKER=$CONTAINER_REGISTRY/${{ secrets.GCP_PROJECT }}/textile/basin/basin_worker:sha-$SHA_SHORT IMAGE_BASIN_EXPORTER=$CONTAINER_REGISTRY/${{ secrets.GCP_PROJECT }}/textile/basin/basin_exporter:sha-$SHA_SHORT make deploy
+          DEPLOYMENT=$DEPLOYMENT IMAGE_BASIN_WORKER=$CONTAINER_REGISTRY/${{ secrets.GCP_PROJECT }}/textile/basin/basin_worker:sha-$SHA_SHORT make deploy

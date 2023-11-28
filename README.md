@@ -13,7 +13,6 @@
 - [Background](#background)
 - [Usage](#usage)
   - [Basin Worker](#basin-worker)
-  - [Basin Exporter](#basin-exporter)
 - [Development](#development)
   - [Running](#running)
   - [Run Tests](#run-tests)
@@ -32,7 +31,7 @@ See [`basin-cli`](https://github.com/tablelandnetwork/basin-cli.git) for usage i
 
 This repo contains the following crates:
 - [`basin_worker`](/lib/worker)`: Daemon that exposes a Cap’n Proto RPC API for creating publications and ingesting publication data.
-- [`basin_exporter`](/lib/exporter): Daemon that periodically exports publication data as parquet to [`basin-storage`](https://github.com/tablelandnetwork/basin-storage.git).
+[`basin-storage`](https://github.com/tablelandnetwork/basin-storage.git).
 - [`basin_evm`](/lib/evm): Rust bindings for the [`basin-storage`](https://github.com/tablelandnetwork/basin-storage.git) EVM contract.
 - [`basin_protocol`](/lib/protocol): Cap’n Proto protocol definitions and Rust bindings.
 - [`basin_common`](/lib/common): Shared types and utilities.
@@ -123,36 +122,6 @@ Options:
   -h, --help
           Print help (see a summary with '-h')
 
-  -V, --version
-          Print version
-```
-
-## Basin Exporter
-
-```bash
-basin_exporter --help
-
-Parquet exporter daemon for Tableland Basin
-
-Usage: basin_exporter [OPTIONS] --export-bucket <EXPORT_BUCKET> --export-credentials <EXPORT_CREDENTIALS> --database-url <DATABASE_URL>
-
-Options:
-      --export-bucket <EXPORT_BUCKET>
-          Parquet export GCS bucket [env: EXPORT_BUCKET=]
-      --export-credentials <EXPORT_CREDENTIALS>
-          Parquet export sink credentials [env: EXPORT_CREDENTIALS=]
-      --export-schedule <EXPORT_SCHEDULE>
-          Parquet export crontab schedule [env: EXPORT_SCHEDULE=] [default: "0 0 0 * * *"]
-      --database-url <DATABASE_URL>
-          Postgres-style database URL [env: DATABASE_URL=]
-      --bind-health-address <BIND_HEALTH_ADDRESS>
-          Host and port to bind the Health API to [env: BIND_HEALTH_ADDRESS=] [default: 127.0.0.1:3001]
-  -v, --verbosity...
-          Logging verbosity (repeat for more verbose logging) [env: VERBOSITY=]
-  -q, --quiet
-          Silence logging [env: QUIET=]
-  -h, --help
-          Print help
   -V, --version
           Print version
 ```

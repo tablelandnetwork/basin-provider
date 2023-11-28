@@ -13,9 +13,6 @@ configMapGenerator:
   - configBasinWorker.env
   name: configmap-basin-worker
 - envs:
-  - configBasinExporter.env
-  name: configmap-basin-exporter
-- envs:
   - configTcpServices.env
   name: configmap-basin-tcp-services
 

@@ -1,4 +1,4 @@
-use crate::{crypto, db, gcs::GcsClient, sql, utils, web3storage::Web3StorageClient};
+use crate::{crypto, db, gcs::GcsClient, web3storage::Web3StorageClient};
 use basin_evm::EVMClient;
 use basin_protocol::publications;
 use capnp::{capability::Promise, Error};
@@ -62,11 +62,6 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
             return Promise::err(Error::failed("owner is required".into()));
         }
         let name = format!("{ns}.{rel}");
-        let schema = pry!(args.get_schema());
-        let mut table_stmt = String::new();
-        if schema.has_columns() {
-            table_stmt = pry!(sql::schema_to_table_create(&name, schema));
-        }
 
         info!("publication {name} create for {owner}");
 
@@ -75,47 +70,8 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
         Promise::from_future(async move {
             e.add_pub(owner, name.as_str()).await?;
             let created = db::namespace_create(&p, &ns, owner).await?;
-            if !table_stmt.is_empty() {
-                debug!("table statement: {table_stmt}");
-                db::pub_table_create(&p, &table_stmt).await?;
-            }
             results.get().set_exists(!created);
             Ok(())
-        })
-    }
-
-    /// Receives publication data.
-    fn push(
-        &mut self,
-        params: publications::PushParams,
-        _: publications::PushResults,
-    ) -> Promise<(), Error> {
-        let args = pry!(params.get());
-        let ns = pry!(pry!(args.get_ns()).to_string());
-        if ns.is_empty() {
-            return Promise::err(Error::failed("namespace is required".into()));
-        }
-        let rel = pry!(pry!(args.get_rel()).to_string());
-        if rel.is_empty() {
-            return Promise::err(Error::failed("relation is required".into()));
-        }
-        let sig = pry!(args.get_sig());
-        let tx = pry!(args.get_tx());
-        let owner = pry!(utils::recover_addr_from_tx(tx, sig));
-        let name = format!("{ns}.{rel}");
-        let insert_stmt = pry!(sql::tx_to_table_inserts(&name, tx));
-
-        info!("publication {name} push for {owner}");
-        debug!("insert statements: {:?}", insert_stmt);
-
-        let p = self.pg_pool.clone();
-        Promise::from_future(async move {
-            if db::is_namespace_owner(&p, &ns, owner).await? {
-                db::pub_table_insert(&p, insert_stmt).await?;
-                Ok(())
-            } else {
-                Err(Error::failed("unauthorized".into()))
-            }
         })
     }
 
