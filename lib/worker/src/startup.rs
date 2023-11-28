@@ -30,7 +30,7 @@ pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
                 "/records/{record_id}",
                 web::get().to(routes::find_record_by_id),
             )
-            .route("/health_check", web::get().to(routes::health_check))
+            .route("/health", web::get().to(routes::health_check))
             .app_data(db_pool.clone())
             .app_data(evm_client.clone())
             .app_data(gcs_client.clone())
