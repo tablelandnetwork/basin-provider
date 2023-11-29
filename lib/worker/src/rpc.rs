@@ -122,20 +122,21 @@ impl<E: EVMClient + 'static> publications::Server for Publications<E> {
 
             let cache_duration = db::get_cache_config(&p, &ns, &rel).await?;
 
+            let mut metadata: HashMap<String, String> =
+                HashMap::from([("timestamp".into(), format!("{}", timestamp))]);
+
+            if cache_duration.is_some() {
+                metadata.insert(
+                    "cache_duration".into(),
+                    format!("{}", cache_duration.unwrap()),
+                );
+            }
+
             let upload_type = UploadType::Multipart(Box::new(Object {
                 name: filename.clone(),
                 content_type: Some("application/octet-stream".into()),
                 size: size as i64,
-                metadata: Some(HashMap::from([
-                    ("timestamp".into(), format!("{}", timestamp)),
-                    (
-                        "cache_duration".into(),
-                        match cache_duration {
-                            Some(i) => format!("{}", i),
-                            None => "".into(),
-                        },
-                    ),
-                ])),
+                metadata: Some(metadata),
                 ..Default::default()
             }));
 
