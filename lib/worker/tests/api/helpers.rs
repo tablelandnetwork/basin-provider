@@ -1,15 +1,21 @@
 use basin_common::db;
 use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
-use basin_evm::EVMClient;
 use basin_worker::gcs::GcsClient;
+use basin_worker::routes::CreateVaultInput;
 use chrono::NaiveDateTime;
-use ethers::core::rand::{thread_rng, Rng};
-use ethers::types::{Address, H160};
+use ethers::{
+    core::{
+        k256::ecdsa::SigningKey,
+        rand::{thread_rng, Rng},
+    },
+    signers::{LocalWallet, Signer, Wallet},
+};
 use reqwest::Response;
+use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
 use std::net::TcpListener;
-use std::str::FromStr;
+use tiny_keccak::{Hasher, Keccak};
 
 pub async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
@@ -39,7 +45,7 @@ pub async fn spawn_app() -> TestApp {
     tokio::spawn(server);
 
     let address = format!("{}:{}", "http://127.0.0.1", port);
-    let account = Address::from_str("0x9e93F8a7A1035EF984979814ae79B53270cd306A").unwrap();
+    let account = LocalWallet::new(&mut thread_rng());
     let api_client = reqwest::Client::builder().build().unwrap();
 
     TestApp {
@@ -64,53 +70,40 @@ pub struct TestApp {
     pub api_client: reqwest::Client,
     pub evm_client: MockClient,
     pub gcs_client: GcsClient,
-    pub account: H160,
+    pub account: Wallet<SigningKey>,
 }
 
 impl TestApp {
-    pub async fn create_vault(&self, name: String) {
-        let _ = self.evm_client.add_pub(self.account, name.as_str()).await;
-
-        let parts: Vec<&str> = name.split('.').collect();
-        let _ = basin_worker::db::namespace_create(
-            &self.db_pool,
-            parts[0],
-            parts[1],
-            None,
-            self.account,
-        )
-        .await;
+    pub async fn create_vault(&self, name: &str) {
+        self.api_client
+            .post(&format!("{}/vaults/{}", &self.address, name))
+            .form::<CreateVaultInput>(&CreateVaultInput {
+                cache: None,
+                account: Some(format!("{:#x}", self.account.address())),
+            })
+            .send()
+            .await
+            .expect("Failed to execute request.");
     }
 
-    pub async fn write_record(
-        &self,
-        ns: &str,
-        rel: &str,
-        cid: &str,
-        timestamp: i64,
-        cache_path: Option<String>,
-        expires_at: Option<NaiveDateTime>,
-    ) {
-        let (_, data) = multibase::decode(cid).unwrap();
-
-        pub_jobs_insert(
-            &self.db_pool,
-            ns,
-            rel,
-            data,
-            timestamp,
-            cache_path,
-            expires_at,
-        )
-        .await
-        .unwrap();
+    pub async fn create_vault_with_cache(&self, name: &str, cache: i64) {
+        self.api_client
+            .post(&format!("{}/vaults/{}", &self.address, name))
+            .form::<CreateVaultInput>(&CreateVaultInput {
+                cache: Some(cache),
+                account: Some(format!("{:#x}", self.account.address())),
+            })
+            .send()
+            .await
+            .expect("Failed to execute request.");
     }
 
     pub async fn get_vaults(&self) -> Response {
         self.api_client
             .get(&format!(
                 "{}/vaults?account={:#x}",
-                &self.address, self.account
+                &self.address,
+                self.account.address()
             ))
             .send()
             .await
@@ -163,6 +156,65 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    pub async fn upload_record(
+        &self,
+        vault: &str,
+        timestamp: i64,
+        record_content: [u8; 256],
+    ) -> Response {
+        // calculating hash
+        let mut hasher = Keccak::v256();
+        hasher.update(&record_content[..256]);
+        let mut output = [0u8; 32];
+        hasher.finalize(&mut output);
+
+        // signing
+        let secp = Secp256k1::new();
+        let pk = SecretKey::from_slice(&self.account.signer().to_bytes()).unwrap();
+        let msg = Message::from_slice(&output).unwrap();
+        let (rid, sig) = secp.sign_ecdsa_recoverable(&msg, &pk).serialize_compact();
+        let mut sigb = Vec::with_capacity(65);
+        sigb.extend_from_slice(&sig);
+        sigb.push(rid.to_i32() as u8);
+
+        self.api_client
+            .post(&format!(
+                "{}/vaults/{}/records?timestamp={}&signature={}",
+                &self.address,
+                vault,
+                timestamp,
+                hex::encode(sigb)
+            ))
+            .body(record_content.to_vec())
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn write_record_to_db(
+        &self,
+        ns: &str,
+        rel: &str,
+        cid: &str,
+        timestamp: i64,
+        cache_path: Option<String>,
+        expires_at: Option<NaiveDateTime>,
+    ) {
+        let (_, data) = multibase::decode(cid).unwrap();
+
+        pub_jobs_insert(
+            &self.db_pool,
+            ns,
+            rel,
+            data,
+            timestamp,
+            cache_path,
+            expires_at,
+        )
+        .await
+        .unwrap();
     }
 }
 

@@ -23,8 +23,16 @@ pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
                 web::get().to(routes::find_vaults_by_account::<E>),
             )
             .route(
-                "/vaults/{pub_id}/records",
-                web::get().to(routes::find_records_by_pub_id),
+                "/vaults/{vault_id}",
+                web::post().to(routes::create_vault::<E>),
+            )
+            .route(
+                "/vaults/{vault_id}/records",
+                web::get().to(routes::find_records_by_vault_id),
+            )
+            .route(
+                "/vaults/{vault_id}/records",
+                web::post().to(routes::write_record),
             )
             .route(
                 "/records/{record_id}",

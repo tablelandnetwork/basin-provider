@@ -1,5 +1,12 @@
 use crate::helpers::spawn_app;
 use actix_web::http;
+use basin_evm::EVMClient;
+use ethers::{
+    core::rand::{thread_rng, Rng},
+    signers::Signer,
+};
+
+use reqwest::StatusCode;
 use serde_json::json;
 
 #[tokio::test]
@@ -7,8 +14,8 @@ async fn list_vaults() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.create_vault("api.test2".to_string()).await;
+    app.create_vault("api.test").await;
+    app.create_vault("api.test2").await;
 
     // make request
     let response = app
@@ -27,8 +34,8 @@ async fn list_records() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.write_record(
+    app.create_vault("api.test").await;
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -59,8 +66,8 @@ async fn list_records_limit_and_offset() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.write_record(
+    app.create_vault("api.test").await;
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -69,7 +76,7 @@ async fn list_records_limit_and_offset() {
         None,
     )
     .await;
-    app.write_record(
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -100,8 +107,8 @@ async fn list_records_before_and_after() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.write_record(
+    app.create_vault("api.test").await;
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -110,7 +117,7 @@ async fn list_records_before_and_after() {
         None,
     )
     .await;
-    app.write_record(
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -141,8 +148,8 @@ async fn download_record_not_found() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.write_record(
+    app.create_vault("api.test").await;
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -166,8 +173,8 @@ async fn download_record() {
     let app = spawn_app().await;
 
     // setup
-    app.create_vault("api.test".to_string()).await;
-    app.write_record(
+    app.create_vault("api.test").await;
+    app.write_record_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -186,4 +193,35 @@ async fn download_record() {
         .unwrap();
 
     assert_eq!("Hello\n", data);
+}
+
+#[tokio::test]
+async fn create_vault() {
+    let app = spawn_app().await;
+
+    app.create_vault("api.test").await;
+    let vaults = app
+        .evm_client
+        .list_pub(app.account.address())
+        .await
+        .unwrap();
+
+    assert_eq!("api.test", vaults[0]);
+}
+
+#[tokio::test]
+async fn write_record() {
+    let app = spawn_app().await;
+
+    app.create_vault_with_cache("api.test", 10).await;
+
+    // creating random record
+    let mut record_content = [0u8; 256];
+    thread_rng().fill(&mut record_content);
+
+    let response = app
+        .upload_record("api.test", 1701372646, record_content)
+        .await;
+
+    assert_eq!(response.status(), StatusCode::CREATED);
 }

@@ -10,6 +10,7 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
+actix-multipart = { workspace = true }
 actix-web = { workspace = true }
 anvil = { workspace = true }
 array-bytes = { workspace = true }
@@ -44,6 +45,7 @@ tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 warp = { workspace = true }
+
 
 [dev-dependencies]
 wiremock = "0.5"

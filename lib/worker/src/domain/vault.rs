@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Vault {
@@ -26,5 +27,11 @@ impl Vault {
 
     pub fn relation(&self) -> String {
         self.rel.clone()
+    }
+}
+
+impl fmt::Display for Vault {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.ns, self.rel)
     }
 }
