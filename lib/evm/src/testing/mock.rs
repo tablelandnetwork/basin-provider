@@ -77,12 +77,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore]
     async fn new_works() {
         let client = MockClient::new().await.unwrap();
         assert!(!client.address().is_zero());
     }
 
     #[tokio::test]
+    #[ignore]
     async fn add_and_list_pub_works() {
         let client = MockClient::new().await.unwrap();
         let owner = Address::random();

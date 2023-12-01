@@ -290,7 +290,7 @@ pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
         }
     };
 
-    HttpResponse::Ok().json(CreateVaultResponse { exists: created })
+    HttpResponse::Ok().json(CreateVaultResponse { created })
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -301,7 +301,7 @@ pub struct CreateVaultInput {
 
 #[derive(Debug, Serialize)]
 pub struct CreateVaultResponse {
-    exists: bool,
+    created: bool,
 }
 
 pub async fn write_record(

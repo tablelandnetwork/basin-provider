@@ -21,11 +21,17 @@ pub async fn namespace_create(
 ) -> Result<bool> {
     // Insert a new namespace for owner
     let record = sqlx::query!(
-        "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id",
+        "WITH i AS (
+            INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id
+        )
+        SELECT id, true as created FROM i
+        UNION ALL
+        SELECT id, false as created FROM namespaces WHERE name = $1 LIMIT 1"
+        ,
         ns,
         owner.as_bytes()
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     // Create schema for the namespace
@@ -33,20 +39,16 @@ pub async fn namespace_create(
         .execute(pool)
         .await?;
 
-    if record.is_some() {
-        sqlx::query!(
-            "INSERT INTO cache_config (ns_id, relation, duration) VALUES ($1, $2, $3)",
-            record.unwrap().id,
-            rel,
-            cache_duration,
-        )
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "INSERT INTO cache_config (ns_id, relation, duration) VALUES ($1, $2, $3)",
+        record.id,
+        rel,
+        cache_duration,
+    )
+    .execute(pool)
+    .await?;
 
-        return Ok(true);
-    }
-
-    Ok(false)
+    Ok(record.created.unwrap())
 }
 
 /// Returns whether or not the namespace exists.
