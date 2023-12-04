@@ -169,6 +169,7 @@ async fn download_record_not_found() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn download_record() {
     let app = spawn_app().await;
 

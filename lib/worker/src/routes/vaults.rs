@@ -72,6 +72,7 @@ pub async fn find_record_by_id(
     {
         Ok(s) => s,
         Err(err) => {
+            print!("{}", err);
             log::error!("{}", err);
             return HttpResponse::InternalServerError().json(ErrorResponse {
                 error: "failed to download cid".to_string(),
