@@ -110,15 +110,15 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_records_from_vaults(&self, vault: &str) -> Response {
+    pub async fn get_events_from_vaults(&self, vault: &str) -> Response {
         self.api_client
-            .get(&format!("{}/vaults/{}/records", &self.address, vault))
+            .get(&format!("{}/vaults/{}/events", &self.address, vault))
             .send()
             .await
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_records_from_vaults_limit_and_offset(
+    pub async fn get_events_from_vaults_limit_and_offset(
         &self,
         vault: &str,
         limit: i32,
@@ -126,7 +126,7 @@ impl TestApp {
     ) -> Response {
         self.api_client
             .get(&format!(
-                "{}/vaults/{}/records?limit={}&offset={}",
+                "{}/vaults/{}/events?limit={}&offset={}",
                 &self.address, vault, limit, offset
             ))
             .send()
@@ -134,15 +134,15 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_record(&self, cid: &str) -> Response {
+    pub async fn get_event(&self, cid: &str) -> Response {
         self.api_client
-            .get(&format!("{}/records/{}", &self.address, cid))
+            .get(&format!("{}/events/{}", &self.address, cid))
             .send()
             .await
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_records_from_vaults_before_and_after(
+    pub async fn get_events_from_vaults_before_and_after(
         &self,
         vault: &str,
         before: i32,
@@ -150,7 +150,7 @@ impl TestApp {
     ) -> Response {
         self.api_client
             .get(&format!(
-                "{}/vaults/{}/records?after={}&before={}",
+                "{}/vaults/{}/events?after={}&before={}",
                 &self.address, vault, after, before
             ))
             .send()
@@ -158,15 +158,15 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn upload_record(
+    pub async fn upload_event(
         &self,
         vault: &str,
         timestamp: i64,
-        record_content: [u8; 256],
+        event_content: [u8; 256],
     ) -> Response {
         // calculating hash
         let mut hasher = Keccak::v256();
-        hasher.update(&record_content[..256]);
+        hasher.update(&event_content[..256]);
         let mut output = [0u8; 32];
         hasher.finalize(&mut output);
 
@@ -181,19 +181,19 @@ impl TestApp {
 
         self.api_client
             .post(&format!(
-                "{}/vaults/{}/records?timestamp={}&signature={}",
+                "{}/vaults/{}/events?timestamp={}&signature={}",
                 &self.address,
                 vault,
                 timestamp,
                 hex::encode(sigb)
             ))
-            .body(record_content.to_vec())
+            .body(event_content.to_vec())
             .send()
             .await
             .expect("Failed to execute request.")
     }
 
-    pub async fn write_record_to_db(
+    pub async fn write_event_to_db(
         &self,
         ns: &str,
         rel: &str,

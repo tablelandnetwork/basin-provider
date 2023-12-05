@@ -30,12 +30,12 @@ async fn list_vaults() {
 }
 
 #[tokio::test]
-async fn list_records() {
+async fn list_events() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -47,7 +47,7 @@ async fn list_records() {
 
     // make request
     let response = app
-        .get_records_from_vaults("api.test")
+        .get_events_from_vaults("api.test")
         .await
         .text()
         .await
@@ -62,12 +62,12 @@ async fn list_records() {
 }
 
 #[tokio::test]
-async fn list_records_limit_and_offset() {
+async fn list_events_limit_and_offset() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -76,7 +76,7 @@ async fn list_records_limit_and_offset() {
         None,
     )
     .await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -88,7 +88,7 @@ async fn list_records_limit_and_offset() {
 
     // make request
     let response = app
-        .get_records_from_vaults_limit_and_offset("api.test", 1, 0)
+        .get_events_from_vaults_limit_and_offset("api.test", 1, 0)
         .await
         .text()
         .await
@@ -103,12 +103,12 @@ async fn list_records_limit_and_offset() {
 }
 
 #[tokio::test]
-async fn list_records_before_and_after() {
+async fn list_events_before_and_after() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -117,7 +117,7 @@ async fn list_records_before_and_after() {
         None,
     )
     .await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -129,7 +129,7 @@ async fn list_records_before_and_after() {
 
     // make request
     let response = app
-        .get_records_from_vaults_before_and_after("api.test", 0, 1700844695)
+        .get_events_from_vaults_before_and_after("api.test", 0, 1700844695)
         .await
         .text()
         .await
@@ -144,12 +144,12 @@ async fn list_records_before_and_after() {
 }
 
 #[tokio::test]
-async fn download_record_not_found() {
+async fn download_event_not_found() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -161,7 +161,7 @@ async fn download_record_not_found() {
 
     // make request
     let status = app
-        .get_record("bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4")
+        .get_event("bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4")
         .await
         .status();
 
@@ -170,12 +170,12 @@ async fn download_record_not_found() {
 
 #[tokio::test]
 #[ignore]
-async fn download_record() {
+async fn download_event() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
-    app.write_record_to_db(
+    app.write_event_to_db(
         "api",
         "test",
         "bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4",
@@ -187,7 +187,7 @@ async fn download_record() {
 
     // make request
     let data = app
-        .get_record("bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4")
+        .get_event("bafybeibtg4guil6a3xr5aw26ta37ks2yboyxb6g6sp72fxhkiyfawqrpi4")
         .await
         .text()
         .await
@@ -211,17 +211,17 @@ async fn create_vault() {
 }
 
 #[tokio::test]
-async fn write_record() {
+async fn write_event() {
     let app = spawn_app().await;
 
     app.create_vault_with_cache("api.test", 10).await;
 
-    // creating random record
-    let mut record_content = [0u8; 256];
-    thread_rng().fill(&mut record_content);
+    // creating random event
+    let mut event_content = [0u8; 256];
+    thread_rng().fill(&mut event_content);
 
     let response = app
-        .upload_record("api.test", 1701372646, record_content)
+        .upload_event("api.test", 1701372646, event_content)
         .await;
 
     assert_eq!(response.status(), StatusCode::CREATED);

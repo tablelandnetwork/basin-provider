@@ -1,6 +1,6 @@
 use crate::domain::CachePath;
 use crate::domain::Cid;
-use crate::domain::RecordInfo;
+use crate::domain::Event;
 use crate::domain::Vault;
 use basin_common::errors::Result;
 use ethers::types::Address;
@@ -97,7 +97,7 @@ pub async fn pub_cids(
     offset: i32,
     before: i64,
     after: i64,
-) -> Result<Vec<RecordInfo>> {
+) -> Result<Vec<Event>> {
     let sql: String = pub_cids_build_query(
         &vault.namespace(),
         &vault.relation(),
@@ -124,7 +124,7 @@ pub async fn pub_cids(
     let rows = res
         .iter()
         .map(|row| {
-            RecordInfo::new(
+            Event::new(
                 row.get("cid"),
                 row.try_get("timestamp").unwrap_or(0),
                 row.try_get("expires_at").ok(),

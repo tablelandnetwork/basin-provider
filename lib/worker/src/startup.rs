@@ -27,16 +27,16 @@ pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
                 web::post().to(routes::create_vault::<E>),
             )
             .route(
-                "/vaults/{vault_id}/records",
-                web::get().to(routes::find_records_by_vault_id),
+                "/vaults/{vault_id}/events",
+                web::get().to(routes::find_events_by_vault_id),
             )
             .route(
-                "/vaults/{vault_id}/records",
-                web::post().to(routes::write_record),
+                "/vaults/{vault_id}/events",
+                web::post().to(routes::write_event),
             )
             .route(
-                "/records/{record_id}",
-                web::get().to(routes::find_record_by_id),
+                "/events/{event_id}",
+                web::get().to(routes::find_event_by_id),
             )
             .route("/health", web::get().to(routes::health_check))
             .app_data(db_pool.clone())

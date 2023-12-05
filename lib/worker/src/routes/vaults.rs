@@ -30,7 +30,7 @@ struct ErrorResponse {
     error: String,
 }
 
-pub async fn find_record_by_id(
+pub async fn find_event_by_id(
     path: web::Path<String>,
     pool: web::Data<PgPool>,
     gcs_client: web::Data<GcsClient>,
@@ -49,7 +49,7 @@ pub async fn find_record_by_id(
         Err(err) => {
             log::error!("{}", err);
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "error fetching the record".to_string(),
+                error: "error fetching the event".to_string(),
             });
         }
     };
@@ -123,9 +123,9 @@ pub struct FindVaultsByAccountParams {
     account: String,
 }
 
-pub async fn find_records_by_vault_id(
+pub async fn find_events_by_vault_id(
     path: web::Path<String>,
-    params: web::Query<FindRecordsByPubIdQueryParams>,
+    params: web::Query<FindEventsByPubIdQueryParams>,
     pool: web::Data<PgPool>,
 ) -> HttpResponse {
     let vault: Vault = match path.try_into() {
@@ -137,7 +137,7 @@ pub async fn find_records_by_vault_id(
         }
     };
 
-    let records = match db::pub_cids(
+    let events = match db::pub_cids(
         &pool,
         &vault,
         params.limit(),
@@ -147,15 +147,15 @@ pub async fn find_records_by_vault_id(
     )
     .await
     {
-        Ok(records) => records,
+        Ok(events) => events,
         Err(_) => {
             return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: "failed to fetch deals".to_string(),
+                error: "failed to fetch events".to_string(),
             })
         }
     };
 
-    HttpResponse::Ok().json(records)
+    HttpResponse::Ok().json(events)
 }
 
 impl TryFrom<web::Path<std::string::String>> for Vault {
@@ -167,14 +167,14 @@ impl TryFrom<web::Path<std::string::String>> for Vault {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct FindRecordsByPubIdQueryParams {
+pub struct FindEventsByPubIdQueryParams {
     limit: Option<i32>,
     offset: Option<i32>,
     before: Option<String>,
     after: Option<String>,
 }
 
-impl FindRecordsByPubIdQueryParams {
+impl FindEventsByPubIdQueryParams {
     fn limit(&self) -> i32 {
         self.limit.unwrap_or(10)
     }
@@ -305,9 +305,9 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
-pub async fn write_record(
+pub async fn write_event(
     path: web::Path<String>,
-    params: web::Query<WriteRecordParams>,
+    params: web::Query<WriteEventParams>,
     mut payload: web::Payload,
     gcs_client: web::Data<GcsClient>,
     pool: web::Data<PgPool>,
@@ -454,7 +454,7 @@ pub async fn write_record(
 }
 
 #[derive(Deserialize)]
-pub struct WriteRecordParams {
+pub struct WriteEventParams {
     timestamp: Option<i64>,
     signature: Option<String>,
 }
