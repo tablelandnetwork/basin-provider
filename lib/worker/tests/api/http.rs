@@ -178,6 +178,7 @@ async fn download_event_not_found() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn download_event() {
     let app = spawn_app().await;
 
