@@ -9,6 +9,7 @@ use crate::gcs::GcsClient;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
+use basin_common::ecmh::RistrettoMultisetHash;
 use ethers::types::Address;
 use futures::StreamExt;
 use google_cloud_storage::http::objects::download::Range;
@@ -22,7 +23,6 @@ use serde::Serialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::convert::Infallible;
-use tiny_keccak::{Hasher, Keccak};
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -30,6 +30,27 @@ use warp::Stream;
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+struct Hasher {
+    hashset: RistrettoMultisetHash,
+}
+
+impl Hasher {
+    fn new() -> Self {
+        Self {
+            hashset: RistrettoMultisetHash::default(),
+        }
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        self.hashset.insert(data);
+    }
+
+    fn finalize(&mut self, output: &mut [u8; 32]) {
+        let hash = self.hashset.hash();
+        output.copy_from_slice(&hash);
+    }
 }
 
 pub async fn find_event_by_id(
@@ -457,7 +478,7 @@ pub async fn write_event(
         }
     };
 
-    let mut hasher = Keccak::v256();
+    let mut hasher = Hasher::new();
 
     let mut collected: Vec<u8> = vec![];
     while let Some(buf) = stream.next().await {

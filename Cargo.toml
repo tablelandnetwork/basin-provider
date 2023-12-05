@@ -42,7 +42,11 @@ reqwest = { version = "0.11", features = ["stream"] }
 secp256k1 = { version = "0.27.0", features = ["recovery"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "chrono"] }
+sqlx = { version = "0.7.1", features = [
+    "postgres",
+    "runtime-tokio-native-tls",
+    "chrono",
+] }
 stderrlog = "0.5.4"
 thiserror = "1.0.48"
 tiny-keccak = "2.0.2"
@@ -51,6 +55,14 @@ tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }
 tokio-util = { version = "0.7.8", features = ["compat"] }
 url = "2.4.1"
 warp = "0.3"
+curve25519-dalek = { version = "4.1.1", features = [
+    "digest",
+    "group",
+    "serde",
+] }
+elliptic-curve = { version = "0.13.6", features = ["serde", "hash2curve"] }
+sha2 = "0.10.8"
+
 
 [profile.release]
 codegen-units = 1
