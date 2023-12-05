@@ -28,11 +28,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
 
       - name: Install Cap'n Proto
         run: |
@@ -43,10 +41,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --all
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install CockroachDB
         run: |
@@ -62,13 +57,10 @@ jobs:
       - name: Start CockroachDB
         run: cockroach start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=localhost --background
 
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all -- --nocapture
+      - name: Test        
         env:
           EXPORT_BUCKET: ${{ secrets.EXPORT_BUCKET }}
           EXPORT_CREDENTIALS: ${{ secrets.EXPORT_CREDENTIALS }}
           EXPORT_SCHEDULE: 1/5 * * * * *
           DATABASE_HOST: localhost:26257
+        run: cargo test --all -- --nocapture
