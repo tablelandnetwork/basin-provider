@@ -10,6 +10,15 @@ use reqwest::StatusCode;
 use serde_json::json;
 
 #[tokio::test]
+async fn health_check_works() {
+    let app = spawn_app().await;
+
+    let response = app.health_status().await;
+
+    assert_eq!(200, response.status());
+}
+
+#[tokio::test]
 async fn list_vaults() {
     let app = spawn_app().await;
 
@@ -169,7 +178,6 @@ async fn download_event_not_found() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn download_event() {
     let app = spawn_app().await;
 

@@ -6,13 +6,11 @@ use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
 
-use actix_web::http::header::ContentType;
-use actix_web::{web, HttpResponse, Result};
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
 use ethers::types::Address;
-use futures::TryStreamExt;
+use futures::StreamExt;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
 use google_cloud_storage::http::objects::{
@@ -23,7 +21,11 @@ use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use tiny_keccak::{Hasher, Keccak};
+use warp::http::StatusCode;
+use warp::reply::{json, with_status};
+use warp::Stream;
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -31,16 +33,19 @@ struct ErrorResponse {
 }
 
 pub async fn find_event_by_id(
-    path: web::Path<String>,
-    pool: web::Data<PgPool>,
-    gcs_client: web::Data<GcsClient>,
-) -> HttpResponse {
+    path: String,
+    pool: PgPool,
+    gcs_client: GcsClient,
+) -> Result<Box<dyn warp::Reply>, Infallible> {
     let cid: Cid = match path.try_into() {
         Ok(v) => v,
         Err(err) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: err.to_string(),
-            })
+            return Ok(Box::new(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            )));
         }
     };
 
@@ -48,14 +53,18 @@ pub async fn find_event_by_id(
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "error fetching the event".to_string(),
-            });
+            return Ok(Box::new(with_status(
+                json(&ErrorResponse {
+                    error: "error fetching the event".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            )));
         }
     };
 
     if cache_path.is_none() {
-        return HttpResponse::NotFound().finish();
+        let empty: Vec<u8> = Vec::new();
+        return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
     }
 
     let stream = match gcs_client
@@ -72,50 +81,60 @@ pub async fn find_event_by_id(
     {
         Ok(s) => s,
         Err(err) => {
-            print!("{}", err);
             log::error!("{}", err);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: "failed to download cid".to_string(),
-            });
+            return Ok(Box::new(with_status(
+                json(&ErrorResponse {
+                    error: "failed to download cid".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            )));
         }
     };
 
-    HttpResponse::Ok()
-        .content_type(ContentType::octet_stream())
-        .streaming(stream)
+    let body = hyper::Body::wrap_stream(stream);
+    Ok(Box::new(with_status(
+        warp::reply::Response::new(body),
+        StatusCode::CREATED,
+    )))
 }
 
-impl TryFrom<web::Path<std::string::String>> for Cid {
+impl TryFrom<String> for Cid {
     type Error = String;
 
-    fn try_from(value: web::Path<std::string::String>) -> Result<Cid, String> {
+    fn try_from(value: String) -> Result<Cid, String> {
         Cid::from(value.to_string())
     }
 }
 
 pub async fn find_vaults_by_account<E: EVMClient + 'static + std::marker::Sync>(
-    params: web::Query<FindVaultsByAccountParams>,
-    evm_client: web::Data<E>,
-) -> HttpResponse {
+    evm_client: E,
+    params: FindVaultsByAccountParams,
+) -> Result<impl warp::Reply, Infallible> {
     let account = match Address::from_str(params.account.as_str()) {
         Ok(v) => v,
         Err(_) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "account is invalid".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "account is invalid".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
     let vaults = match evm_client.list_pub(account).await {
         Ok(vaults) => vaults,
         Err(err) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: err.to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
-    HttpResponse::Ok().json(vaults)
+    Ok(with_status(json(&vaults), StatusCode::OK))
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,16 +143,19 @@ pub struct FindVaultsByAccountParams {
 }
 
 pub async fn find_events_by_vault_id(
-    path: web::Path<String>,
-    params: web::Query<FindEventsByPubIdQueryParams>,
-    pool: web::Data<PgPool>,
-) -> HttpResponse {
+    path: String,
+    pool: PgPool,
+    params: FindEventsByPubIdQueryParams,
+) -> Result<impl warp::Reply, Infallible> {
     let vault: Vault = match path.try_into() {
         Ok(p) => p,
         Err(err) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: err.to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
@@ -149,19 +171,22 @@ pub async fn find_events_by_vault_id(
     {
         Ok(events) => events,
         Err(_) => {
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: "failed to fetch events".to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to fetch events".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
-    HttpResponse::Ok().json(events)
+    Ok(with_status(json(&events), StatusCode::OK))
 }
 
-impl TryFrom<web::Path<std::string::String>> for Vault {
+impl TryFrom<String> for Vault {
     type Error = String;
 
-    fn try_from(value: web::Path<std::string::String>) -> Result<Vault, String> {
+    fn try_from(value: String) -> Result<Vault, String> {
         Vault::from(value.to_string())
     }
 }
@@ -227,26 +252,32 @@ impl FindEventsByPubIdQueryParams {
 }
 
 pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
-    path: web::Path<String>,
-    input: web::Form<CreateVaultInput>,
-    evm_client: web::Data<E>,
-    pool: web::Data<PgPool>,
-) -> HttpResponse {
+    path: String,
+    evm_client: E,
+    pool: PgPool,
+    input: CreateVaultInput,
+) -> Result<impl warp::Reply, Infallible> {
     let vault: Vault = match path.try_into() {
         Ok(p) => p,
         Err(err) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: err.to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
     let account: String = match &input.account {
         Some(v) => v.to_string(),
         None => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "account is empty".to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "account is empty".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
@@ -254,9 +285,12 @@ pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "not a valid account".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "not a valid account".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
@@ -267,9 +301,12 @@ pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
         Ok(_) => {}
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "failed to create vault".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to create vault".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     }
 
@@ -285,13 +322,19 @@ pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "failed to create vault".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to create vault".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
-    HttpResponse::Ok().json(CreateVaultResponse { created })
+    Ok(with_status(
+        json(&CreateVaultResponse { created }),
+        StatusCode::CREATED,
+    ))
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -306,35 +349,43 @@ pub struct CreateVaultResponse {
 }
 
 pub async fn write_event(
-    path: web::Path<String>,
-    params: web::Query<WriteEventParams>,
-    mut payload: web::Payload,
-    gcs_client: web::Data<GcsClient>,
-    pool: web::Data<PgPool>,
-) -> HttpResponse {
+    path: String,
+    gcs_client: GcsClient,
+    pool: PgPool,
+    params: WriteEventParams,
+    mut stream: impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync,
+) -> Result<impl warp::Reply, Infallible> {
     let vault: Vault = match path.try_into() {
         Ok(p) => p,
         Err(err) => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: err.to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
     match db::namespace_exists(&pool, &vault.namespace()).await {
         Ok(exists) => {
             if !exists {
-                return HttpResponse::NotFound().json(ErrorResponse {
-                    error: "namespace not found".to_string(),
-                });
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "namespace not found".to_string(),
+                    }),
+                    StatusCode::NOT_FOUND,
+                ));
             }
         }
         Err(err) => {
-            println!("{}", err);
             log::error!("{}", err);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: "error checking the vault".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "error checking the vault".to_string(),
+                }),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
         }
     }
 
@@ -343,9 +394,12 @@ pub async fn write_event(
             Ok(v) => v,
             Err(err) => {
                 log::error!("{}", err);
-                return HttpResponse::InternalServerError().json(ErrorResponse {
-                    error: "error fetching the cache config".to_string(),
-                });
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "error fetching the cache config".to_string(),
+                    }),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                ));
             }
         };
 
@@ -393,15 +447,21 @@ pub async fn write_event(
 
     let mut hasher = Keccak::v256();
 
-    while let Ok(Some(bytes)) = payload.try_next().await {
-        let data = bytes.to_vec();
-        let length = data.len();
+    let mut collected: Vec<u8> = vec![];
+    while let Some(buf) = stream.next().await {
+        let mut buf = buf.unwrap();
+        while buf.remaining() > 0 {
+            let chunk = buf.chunk();
+            let chunk_len = chunk.len();
+            collected.extend_from_slice(chunk);
+            buf.advance(chunk_len);
+        }
 
         uploader
-            .upload_single_chunk(data.clone(), length)
+            .upload_single_chunk(collected.clone(), collected.len())
             .await
             .unwrap();
-        hasher.update(&data);
+        hasher.update(&collected);
     }
 
     let mut output = [0u8; 32];
@@ -410,17 +470,23 @@ pub async fn write_event(
         Some(sig) => {
             let res = hex::decode(sig);
             if res.is_err() {
-                return HttpResponse::BadRequest().json(ErrorResponse {
-                    error: "signature could not be decoded".to_string(),
-                });
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "signature could not be decoded".to_string(),
+                    }),
+                    StatusCode::BAD_REQUEST,
+                ));
             }
 
             res.unwrap()
         }
         None => {
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "missing signature".to_string(),
-            })
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "missing signature".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
@@ -428,29 +494,39 @@ pub async fn write_event(
         Ok(owner) => owner,
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::BadRequest().json(ErrorResponse {
-                error: "invalid signature".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "invalid signature".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
     };
 
     match db::is_namespace_owner(&pool, &vault.namespace(), owner).await {
         Ok(is_owner) => {
             if !is_owner {
-                return HttpResponse::BadRequest().json(ErrorResponse {
-                    error: "unauthorized".to_string(),
-                });
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "unauthorized".to_string(),
+                    }),
+                    StatusCode::UNAUTHORIZED,
+                ));
             }
         }
         Err(err) => {
             log::error!("{}", err);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: "failed to check authorization".to_string(),
-            });
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to check authorization".to_string(),
+                }),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
         }
     }
 
-    HttpResponse::Created().finish()
+    let empty: Vec<u8> = Vec::new();
+    Ok(with_status(json(&empty), StatusCode::CREATED))
 }
 
 #[derive(Deserialize)]

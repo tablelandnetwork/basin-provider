@@ -615,6 +615,7 @@ dependencies = [
  "google-cloud-default",
  "google-cloud-storage 0.13.1",
  "hex",
+ "hyper",
  "jemallocator",
  "log",
  "multibase",

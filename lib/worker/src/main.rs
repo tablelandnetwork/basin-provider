@@ -12,7 +12,6 @@ use ethers::{
 use log::info;
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
-use std::net::TcpListener;
 use stderrlog::Timestamp;
 
 use basin_worker::startup;
@@ -193,13 +192,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await?;
 
-            let http_listener = TcpListener::bind(args.bind_health_address)?;
+            //let tcp_listener = TcpListener::bind(args.bind_health_address)?;
             let p = pool.clone();
             let c = evm_client.clone();
             let gcs = gcs_client.clone();
-            tokio::spawn(async {
+            tokio::spawn(async move {
                 info!("HTTP API started");
-                startup::start_http_server(http_listener, p, c, gcs)?.await
+                let (_, server) = startup::start_http_server(args.bind_health_address, p, c, gcs);
+                server.await;
             });
 
             rpc::listen(evm_client, pg_pool, gcs_client, web3store_client, listener).await

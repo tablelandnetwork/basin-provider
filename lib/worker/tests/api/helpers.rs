@@ -14,12 +14,11 @@ use ethers::{
 use reqwest::Response;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
-use std::net::TcpListener;
+use std::net::SocketAddr;
 use tiny_keccak::{Hasher, Keccak};
 
 pub async fn spawn_app() -> TestApp {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
-    let port = listener.local_addr().unwrap().port();
+    let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
     let db_name = rand_str(8);
 
     let (db_pool, db_url) = get_pg_pool(db_name).await;
@@ -34,17 +33,16 @@ pub async fn spawn_app() -> TestApp {
 
     let evm_client = MockClient::new().await.unwrap();
 
-    let server = basin_worker::startup::start_http_server(
-        listener,
+    let (addr, server) = basin_worker::startup::start_http_server(
+        addr,
         db_pool.clone(),
         evm_client.clone(),
         gcs_client.clone(),
-    )
-    .expect("Failed to bind address");
+    );
 
     tokio::spawn(server);
 
-    let address = format!("{}:{}", "http://127.0.0.1", port);
+    let address = format!("{}:{}", "http://127.0.0.1", addr.port());
     let account = LocalWallet::new(&mut thread_rng());
     let api_client = reqwest::Client::builder().build().unwrap();
 
@@ -74,6 +72,14 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    pub async fn health_status(&self) -> Response {
+        self.api_client
+            .get(&format!("{}/health", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
     pub async fn create_vault(&self, name: &str) {
         self.api_client
             .post(&format!("{}/vaults/{}", &self.address, name))

@@ -29,6 +29,7 @@ google-cloud-auth = { workspace = true }
 google-cloud-default = { workspace = true }
 google-cloud-storage = { workspace = true }
 hex = { workspace = true }
+hyper = { workspace = true }
 log = { workspace = true }
 multibase = { workspace = true }
 once_cell = { workspace = true }
@@ -45,7 +46,6 @@ tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 warp = { workspace = true }
-
 
 [dev-dependencies]
 wiremock = "0.5"
