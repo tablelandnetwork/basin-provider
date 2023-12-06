@@ -11,6 +11,10 @@ use ethers::{
     },
     signers::{LocalWallet, Signer, Wallet},
 };
+use google_cloud_storage::http::{
+    buckets::insert::{BucketCreationConfig, InsertBucketParam, InsertBucketRequest},
+    objects::upload::{Media, UploadObjectRequest, UploadType},
+};
 use reqwest::Response;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
@@ -27,9 +31,24 @@ pub async fn spawn_app() -> TestApp {
     let gcs_client = GcsClient::new(
         std::env::var("EXPORT_BUCKET").unwrap(),
         std::env::var("EXPORT_CREDENTIALS").unwrap(),
+        Some(std::env::var("EXPORT_ENDPOINT").unwrap()),
     )
     .await
     .unwrap();
+
+    let _ = gcs_client
+        .inner
+        .insert_bucket(&InsertBucketRequest {
+            name: std::env::var("EXPORT_BUCKET").unwrap(),
+            bucket: BucketCreationConfig {
+                ..Default::default()
+            },
+            param: InsertBucketParam {
+                ..Default::default()
+            },
+        })
+        .await
+        .unwrap_err();
 
     let evm_client = MockClient::new().await.unwrap();
 
@@ -221,6 +240,22 @@ impl TestApp {
         )
         .await
         .unwrap();
+    }
+
+    pub async fn write_data_to_gcs(&self, filename: String, data: String) {
+        let _ = self
+            .gcs_client
+            .inner
+            .upload_object(
+                &UploadObjectRequest {
+                    bucket: self.gcs_client.bucket.clone(),
+                    ..Default::default()
+                },
+                data,
+                &UploadType::Simple(Media::new(filename)),
+            )
+            .await
+            .unwrap_err();
     }
 }
 

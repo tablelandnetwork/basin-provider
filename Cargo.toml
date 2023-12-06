@@ -27,9 +27,9 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4.4", features = ["derive", "env"] }
 ethers = { git = "https://github.com/gakonst/ethers-rs.git" }
 futures = "0.3.28"
-google-cloud-auth = "0.12.0"
+google-cloud-auth = "0.13.0"
 google-cloud-default = { version = "0.4.0", features = ["storage"] }
-google-cloud-storage = "0.13.1"
+google-cloud-storage = "0.15.0"
 hex = "0.4.3"
 hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 jemallocator = "0.5.4"

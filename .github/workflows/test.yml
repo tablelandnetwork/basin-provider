@@ -23,6 +23,11 @@ jobs:
           - ubuntu-latest
         toolchain:
           - stable
+    services:
+      gcs:
+        image: fsouza/fake-gcs-server
+        ports:
+          - 4443:4443
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -62,5 +67,6 @@ jobs:
           EXPORT_BUCKET: ${{ secrets.EXPORT_BUCKET }}
           EXPORT_CREDENTIALS: ${{ secrets.EXPORT_CREDENTIALS }}
           EXPORT_SCHEDULE: 1/5 * * * * *
+          EXPORT_ENDPOINT: https://localhost:4443
           DATABASE_HOST: localhost:26257
         run: cargo test --all -- --nocapture

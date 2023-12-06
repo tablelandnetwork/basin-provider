@@ -442,8 +442,20 @@ pub async fn write_event(
             },
             &upload_type,
         )
-        .await
-        .unwrap();
+        .await;
+
+    let uploader = match uploader {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("{}", e);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to upload event".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
 
     let mut hasher = Keccak::v256();
 

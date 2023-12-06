@@ -178,12 +178,16 @@ async fn download_event_not_found() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn download_event() {
     let app = spawn_app().await;
 
     // setup
     app.create_vault("api.test").await;
+    app.write_data_to_gcs(
+        "api/test/1700685959292362.parquet".to_string(),
+        "Hello\n".to_string(),
+    )
+    .await;
     app.write_event_to_db(
         "api",
         "test",

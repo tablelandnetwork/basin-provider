@@ -54,6 +54,10 @@ struct Cli {
     #[arg(long, env)]
     export_credentials: String,
 
+    /// GCS HTTP endpoint (used for testing)
+    #[arg(long, env)]
+    export_endpoint: Option<String>,
+
     /// Postgres-style database URL
     #[arg(long, env)]
     database_url: String,
@@ -108,7 +112,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let gcs_client = GcsClient::new(args.export_bucket, args.export_credentials).await?;
+    let gcs_client = GcsClient::new(
+        args.export_bucket,
+        args.export_credentials,
+        args.export_endpoint,
+    )
+    .await?;
     let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
 
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
