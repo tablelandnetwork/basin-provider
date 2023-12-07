@@ -19,3 +19,4 @@ warp = { workspace = true }
 curve25519-dalek = { workspace = true }
 elliptic-curve = { workspace = true }
 sha2 = { workspace = true }
+hex = { workspace = true }

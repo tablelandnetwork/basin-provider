@@ -236,6 +236,6 @@ async fn write_event() {
     let response = app
         .upload_event("api.test", 1701372646, event_content)
         .await;
-
+    //println!("response text: {:?}", response.text().await.unwrap());
     assert_eq!(response.status(), StatusCode::CREATED);
 }

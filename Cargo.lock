@@ -569,6 +569,7 @@ dependencies = [
  "capnp",
  "curve25519-dalek",
  "elliptic-curve",
+ "hex",
  "serde",
  "sha2",
  "sqlx",

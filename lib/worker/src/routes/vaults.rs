@@ -9,7 +9,7 @@ use crate::gcs::GcsClient;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
-use basin_common::ecmh::RistrettoMultisetHash;
+use basin_common::ecmh::Hasher;
 use ethers::types::Address;
 use futures::StreamExt;
 use google_cloud_storage::http;
@@ -32,27 +32,6 @@ use warp::Stream;
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
-}
-
-struct Hasher {
-    hashset: RistrettoMultisetHash,
-}
-
-impl Hasher {
-    fn new() -> Self {
-        Self {
-            hashset: RistrettoMultisetHash::default(),
-        }
-    }
-
-    fn update(&mut self, data: &[u8]) {
-        self.hashset.insert(data);
-    }
-
-    fn finalize(&mut self, output: &mut [u8; 32]) {
-        let hash = self.hashset.hash();
-        output.copy_from_slice(&hash);
-    }
 }
 
 pub async fn find_event_by_id(
@@ -378,8 +357,8 @@ async fn add_signature(
     hash: &[u8; 32],
 ) -> Result<(), http::Error> {
     let sig_metadata: HashMap<String, String> = HashMap::from([
-        ("signature".into(), format!("{}", hex::encode(signature))),
-        ("hash".into(), format!("{}", hex::encode(hash))),
+        ("signature".into(), hex::encode(signature).to_string()),
+        ("hash".into(), hex::encode(hash).to_string()),
     ]);
 
     gcs_client
@@ -563,9 +542,9 @@ pub async fn write_event(
     }
 
     log::info!(
-        "Add signature: {:?}, hash {:?}, to file {:?}",
-        signature,
-        output,
+        "add signature: {:?}, hash {:?}, to file {:?}",
+        hex::encode(signature.clone()),
+        hex::encode(output),
         filename
     );
 
