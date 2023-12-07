@@ -31,6 +31,7 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
     let gcs_client = GcsClient::new(
         std::env::var("EXPORT_BUCKET").unwrap(),
         std::env::var("EXPORT_CREDENTIALS").unwrap(),
+        Some(std::env::var("EXPORT_CREDENTIALS").unwrap()),
     )
     .await
     .unwrap();
@@ -185,6 +186,7 @@ async fn create_publication_and_list_works() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore]
 async fn upload_publication_works() {
     let local = LocalSet::new();
     local

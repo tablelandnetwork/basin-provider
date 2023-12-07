@@ -10,6 +10,8 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
+actix-multipart = { workspace = true }
+actix-web = { workspace = true }
 anvil = { workspace = true }
 array-bytes = { workspace = true }
 backon = { workspace = true }
@@ -27,11 +29,13 @@ google-cloud-auth = { workspace = true }
 google-cloud-default = { workspace = true }
 google-cloud-storage = { workspace = true }
 hex = { workspace = true }
+hyper = { workspace = true }
 log = { workspace = true }
-multibase = "0.9"
+multibase = { workspace = true }
 once_cell = { workspace = true }
 openssl = { workspace = true }
-reqwest = { version = "0.11", features = ["stream"] }
+regex = { workspace = true }
+reqwest = { workspace = true }
 secp256k1 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

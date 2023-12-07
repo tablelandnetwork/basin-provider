@@ -1,4 +1,4 @@
-use basin_common::{db, http};
+use basin_common::db;
 use basin_evm::{testing::MockClient, BasinClient};
 use basin_worker::gcs::GcsClient;
 use basin_worker::rpc;
@@ -13,10 +13,10 @@ use log::info;
 use sqlx::postgres::PgPool;
 use std::net::SocketAddr;
 use stderrlog::Timestamp;
-use warp::Filter;
 
+use basin_worker::startup;
 use std::time::Duration;
-use tokio::{task, time}; // 1.
+use tokio::{task, time};
 
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
 #[global_allocator]
@@ -54,6 +54,10 @@ struct Cli {
     #[arg(long, env)]
     export_credentials: String,
 
+    /// GCS HTTP endpoint (used for testing)
+    #[arg(long, env)]
+    export_endpoint: Option<String>,
+
     /// Postgres-style database URL
     #[arg(long, env)]
     database_url: String,
@@ -63,7 +67,7 @@ struct Cli {
     bind_address: SocketAddr,
 
     /// Host and port to bind the Health API to
-    #[arg(long, env, default_value = "127.0.0.1:3001")]
+    #[arg(long, env, default_value = "127.0.0.1:8080")]
     bind_health_address: SocketAddr,
 
     /// Logging verbosity (repeat for more verbose logging)
@@ -94,31 +98,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timestamp(Timestamp::Millisecond)
         .init()?;
 
-    let warp_server = warp::serve(
-        warp::path("health")
-            .map(warp::reply)
-            .recover(http::handle_warp_rejection),
-    )
-    .run(args.bind_health_address);
-    tokio::spawn(async {
-        info!("health API started");
-        warp_server.await
-    });
-
     let pg_pool = PgPool::connect(&args.database_url).await?;
     db::setup(pg_pool.clone(), &args.database_url).await?;
 
     let pool = pg_pool.clone();
+    let p = pool.clone();
     task::spawn(async move {
         let mut interval = time::interval(Duration::from_secs(60));
 
         loop {
             interval.tick().await;
-            let _ = basin_worker::db::delete_expired_job(&pool).await;
+            let _ = basin_worker::db::delete_expired_job(&p).await;
         }
     });
 
-    let gcs_client = GcsClient::new(args.export_bucket, args.export_credentials).await?;
+    let gcs_client = GcsClient::new(
+        args.export_bucket,
+        args.export_credentials,
+        args.export_endpoint,
+    )
+    .await?;
     let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
 
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
@@ -201,6 +200,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 chain_id,
             )
             .await?;
+
+            //let tcp_listener = TcpListener::bind(args.bind_health_address)?;
+            let p = pool.clone();
+            let c = evm_client.clone();
+            let gcs = gcs_client.clone();
+            tokio::spawn(async move {
+                info!("HTTP API started");
+                let (_, server) = startup::start_http_server(args.bind_health_address, p, c, gcs);
+                server.await;
+            });
 
             rpc::listen(evm_client, pg_pool, gcs_client, web3store_client, listener).await
         }

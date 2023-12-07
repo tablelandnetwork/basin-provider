@@ -33,9 +33,13 @@ impl MockClient {
             wallet.with_chain_id(anvil.chain_id()),
         ));
 
-        let contract = Contract::deploy(client, ()).unwrap().send().await.unwrap();
+        let mut contract = Contract::deploy(client, ()).unwrap();
+        contract.deployer.tx.set_gas(10_000_000u64);
+        contract.deployer.tx.set_gas_price(50000000000u64);
 
-        contract
+        let deployed = contract.send().await.unwrap();
+
+        deployed
             .grant_role(keccak256("PUB_ADMIN_ROLE".as_bytes()), wallet_address)
             .send()
             .await
@@ -43,7 +47,7 @@ impl MockClient {
 
         Ok(Self {
             _anvil: Arc::new(anvil),
-            contract,
+            contract: deployed,
         })
     }
 }

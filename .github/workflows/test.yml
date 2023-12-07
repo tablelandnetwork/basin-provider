@@ -23,16 +23,19 @@ jobs:
           - ubuntu-latest
         toolchain:
           - stable
+    services:
+      gcs:
+        image: fsouza/fake-gcs-server
+        ports:
+          - 4443:4443
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
 
       - name: Install Cap'n Proto
         run: |
@@ -43,10 +46,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --all
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install CockroachDB
         run: |
@@ -62,13 +62,11 @@ jobs:
       - name: Start CockroachDB
         run: cockroach start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=localhost --background
 
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all
+      - name: Test        
         env:
           EXPORT_BUCKET: ${{ secrets.EXPORT_BUCKET }}
           EXPORT_CREDENTIALS: ${{ secrets.EXPORT_CREDENTIALS }}
           EXPORT_SCHEDULE: 1/5 * * * * *
+          EXPORT_ENDPOINT: https://localhost:4443
           DATABASE_HOST: localhost:26257
+        run: cargo test --all -- --nocapture

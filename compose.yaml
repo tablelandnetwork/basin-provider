@@ -23,3 +23,7 @@ services:
       - 26257:26257
       - 8080:8080
     command: start-single-node --insecure --store=type=mem,size=0.5 --advertise-addr=localhost
+  gcs:
+    image: fsouza/fake-gcs-server
+    ports:
+      - 4443:4443

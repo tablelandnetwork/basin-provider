@@ -1,9 +1,13 @@
+use crate::domain::CachePath;
+use crate::domain::Cid;
+use crate::domain::Event;
+use crate::domain::Vault;
 use basin_common::errors::Result;
 use ethers::types::Address;
-use multibase::Base;
 use sqlx::{
-    postgres::PgPool, query_builder::QueryBuilder, types::chrono::NaiveDateTime, Execute, Postgres,
-    Row,
+    postgres::{PgPool, PgRow},
+    query_builder::QueryBuilder,
+    Execute, Postgres, Row,
 };
 
 /// Creates a namespace for owner.
@@ -17,11 +21,17 @@ pub async fn namespace_create(
 ) -> Result<bool> {
     // Insert a new namespace for owner
     let record = sqlx::query!(
-        "INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id",
+        "WITH i AS (
+            INSERT INTO namespaces (name, owner) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id
+        )
+        SELECT id, true as created FROM i
+        UNION ALL
+        SELECT id, false as created FROM namespaces WHERE name = $1 LIMIT 1"
+        ,
         ns,
         owner.as_bytes()
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     // Create schema for the namespace
@@ -29,20 +39,16 @@ pub async fn namespace_create(
         .execute(pool)
         .await?;
 
-    if record.is_some() {
-        sqlx::query!(
-            "INSERT INTO cache_config (ns_id, relation, duration) VALUES ($1, $2, $3)",
-            record.unwrap().id,
-            rel,
-            cache_duration,
-        )
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "INSERT INTO cache_config (ns_id, relation, duration) VALUES ($1, $2, $3)",
+        record.id,
+        rel,
+        cache_duration,
+    )
+    .execute(pool)
+    .await?;
 
-        return Ok(true);
-    }
-
-    Ok(false)
+    Ok(record.created.unwrap())
 }
 
 /// Returns whether or not the namespace exists.
@@ -86,15 +92,24 @@ pub async fn delete_expired_job(pool: &PgPool) -> Result<()> {
 // Lists cids of a given publication
 pub async fn pub_cids(
     pool: &PgPool,
-    ns: String,
-    rel: String,
+    vault: &Vault,
     limit: i32,
     offset: i32,
     before: i64,
     after: i64,
-) -> Result<Vec<(String, i64, Option<NaiveDateTime>)>> {
-    let sql = pub_cids_build_query(&ns, &rel, &limit, &offset, &before, &after);
-    let mut query = sqlx::query(&sql).bind(ns).bind(rel);
+) -> Result<Vec<Event>> {
+    let sql: String = pub_cids_build_query(
+        &vault.namespace(),
+        &vault.relation(),
+        &limit,
+        &offset,
+        &before,
+        &after,
+    );
+
+    let mut query = sqlx::query(&sql)
+        .bind(vault.namespace())
+        .bind(vault.relation());
 
     if after > 0 {
         query = query.bind(after);
@@ -109,8 +124,8 @@ pub async fn pub_cids(
     let rows = res
         .iter()
         .map(|row| {
-            (
-                multibase::encode::<Vec<u8>>(Base::Base32Lower, row.get("cid")),
+            Event::new(
+                row.get("cid"),
                 row.try_get("timestamp").unwrap_or(0),
                 row.try_get("expires_at").ok(),
             )
@@ -118,6 +133,23 @@ pub async fn pub_cids(
         .collect();
 
     Ok(rows)
+}
+
+pub async fn find_job_cache_path_by_cid(pool: &PgPool, cid: Cid) -> Result<Option<CachePath>> {
+    sqlx::query(
+        format!(
+            "SELECT cache_path FROM jobs WHERE cid = '\\x{}'",
+            hex::encode(cid.as_ref())
+        )
+        .as_str(),
+    )
+    .map(|row: PgRow| {
+        row.try_get("cache_path")
+            .map_or(None, |v| Some(CachePath::from(v)))
+    })
+    .fetch_one(pool)
+    .await
+    .map_err(basin_common::errors::Error::from)
 }
 
 fn pub_cids_build_query(
