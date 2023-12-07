@@ -12,8 +12,10 @@ use chrono::DateTime;
 use basin_common::ecmh::RistrettoMultisetHash;
 use ethers::types::Address;
 use futures::StreamExt;
+use google_cloud_storage::http;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
+use google_cloud_storage::http::objects::patch::PatchObjectRequest;
 use google_cloud_storage::http::objects::{
     upload::{UploadObjectRequest, UploadType},
     Object,
@@ -369,6 +371,32 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
+async fn add_signature(
+    gcs_client: GcsClient,
+    filename: String,
+    signature: &[u8],
+    hash: &[u8; 32],
+) -> Result<(), http::Error> {
+    let sig_metadata: HashMap<String, String> = HashMap::from([
+        ("signature".into(), format!("{}", hex::encode(signature))),
+        ("hash".into(), format!("{}", hex::encode(hash))),
+    ]);
+
+    gcs_client
+        .inner
+        .patch_object(&PatchObjectRequest {
+            bucket: gcs_client.bucket.clone(),
+            object: filename.clone(),
+            metadata: Some(Object {
+                metadata: Some(sig_metadata),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+        .await?;
+    Ok(())
+}
+
 pub async fn write_event(
     path: String,
     gcs_client: GcsClient,
@@ -522,6 +550,24 @@ pub async fn write_event(
             ));
         }
     };
+
+    // Patch the GCS object with the signature and hash
+    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
+        log::error!("{}", err);
+        return Ok(with_status(
+            json(&ErrorResponse {
+                error: "failed to add signature to file".to_string(),
+            }),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+    }
+
+    log::info!(
+        "Add signature: {:?}, hash {:?}, to file {:?}",
+        signature,
+        output,
+        filename
+    );
 
     let owner = match crypto::recover(&output, &signature[..64], signature[64] as i32) {
         Ok(owner) => owner,
