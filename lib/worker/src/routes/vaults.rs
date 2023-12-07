@@ -361,18 +361,17 @@ async fn add_signature(
         ("hash".into(), hex::encode(hash).to_string()),
     ]);
 
-    gcs_client
-        .inner
-        .patch_object(&PatchObjectRequest {
-            bucket: gcs_client.bucket.clone(),
-            object: filename.clone(),
-            metadata: Some(Object {
-                metadata: Some(sig_metadata),
-                ..Default::default()
-            }),
+    let req = PatchObjectRequest {
+        bucket: gcs_client.bucket.clone(),
+        object: filename.clone(),
+        metadata: Some(Object {
+            metadata: Some(sig_metadata),
             ..Default::default()
-        })
-        .await?;
+        }),
+        ..Default::default()
+    };
+    gcs_client.patch_object(filename, req).await?;
+
     Ok(())
 }
 
