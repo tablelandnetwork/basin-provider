@@ -46,6 +46,7 @@ tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 warp = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 wiremock = "0.5"

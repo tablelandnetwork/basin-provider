@@ -527,24 +527,6 @@ pub async fn write_event(
         }
     };
 
-    // Patch the GCS object with the signature and hash
-    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
-        log::error!("{}", err);
-        return Ok(with_status(
-            json(&ErrorResponse {
-                error: "failed to add signature to file".to_string(),
-            }),
-            StatusCode::INTERNAL_SERVER_ERROR,
-        ));
-    }
-
-    log::info!(
-        "added signature: {:?}, hash {:?}, to file {:?}",
-        hex::encode(signature.clone()),
-        hex::encode(output),
-        filename
-    );
-
     let owner = match crypto::recover(&output, &signature[..64], signature[64] as i32) {
         Ok(owner) => owner,
         Err(err) => {
@@ -579,6 +561,24 @@ pub async fn write_event(
             ));
         }
     }
+
+    // Patch the GCS object with the signature and hash
+    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
+        log::error!("{}", err);
+        return Ok(with_status(
+            json(&ErrorResponse {
+                error: "failed to add signature to file".to_string(),
+            }),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+    }
+
+    log::info!(
+        "added signature: {:?}, hash {:?}, to file {:?}",
+        hex::encode(signature.clone()),
+        hex::encode(output),
+        filename
+    );
 
     let empty: Vec<u8> = Vec::new();
     Ok(with_status(json(&empty), StatusCode::CREATED))

@@ -636,6 +636,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "tokio-util",
+ "url",
  "warp",
  "wiremock",
 ]

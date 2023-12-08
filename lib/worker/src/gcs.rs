@@ -2,6 +2,7 @@ use base64::{engine::general_purpose, Engine};
 use google_cloud_auth::{credentials::CredentialsFile, error::Error};
 use google_cloud_storage::client::{Client, ClientConfig};
 use google_cloud_storage::http;
+use url::Url;
 
 /// Wrapper for a Google Cloud Storage client.
 #[derive(Clone)]
@@ -39,10 +40,12 @@ impl GcsClient {
             None => ClientConfig { ..default_config },
         };
 
+        let endpoint = gcs_config.storage_endpoint.clone();
+
         Ok(Self {
             inner: Client::new(gcs_config),
             bucket,
-            endpoint: endpoint.unwrap_or_else(|| "https://localhost:4443".to_string()),
+            endpoint,
             access_token: creds,
         })
     }
@@ -52,11 +55,19 @@ impl GcsClient {
         filename: String,
         req: http::objects::patch::PatchObjectRequest,
     ) -> Result<(), http::Error> {
-        let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .build()
-            .ok()
-            .unwrap();
+        let endpoint = Url::parse(&self.endpoint).unwrap();
+        let hostname = endpoint.host_str().unwrap();
+        let client;
+        if hostname == "localhost" {
+            client = reqwest::Client::builder()
+                .danger_accept_invalid_certs(true)
+                .build()
+                .ok()
+                .unwrap();
+        } else {
+            client = reqwest::Client::builder().build().ok().unwrap();
+        }
+
         let url = format!(
             "{}/storage/v1/b/{}/o/{}",
             self.endpoint, self.bucket, filename
