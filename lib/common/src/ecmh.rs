@@ -25,7 +25,7 @@ impl RistrettoMultisetHash {
 }
 
 impl RistrettoMultisetHash {
-    /// Hash the given item into a RistrettoPoint to be used by the insert and remove methods.
+    // Hash the given item into a RistrettoPoint to be used by the insert and remove methods.
     fn hash_to_point<Data: AsRef<[u8]>>(item: Data) -> RistrettoPoint {
         RistrettoPoint::hash_from_bytes::<Sha512>(item.as_ref())
     }

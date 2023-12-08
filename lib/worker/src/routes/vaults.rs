@@ -15,7 +15,6 @@ use futures::StreamExt;
 use google_cloud_storage::http;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
-use google_cloud_storage::http::objects::patch::PatchObjectRequest;
 use google_cloud_storage::http::objects::{
     upload::{UploadObjectRequest, UploadType},
     Object,
@@ -360,8 +359,7 @@ async fn add_signature(
         ("signature".into(), hex::encode(signature).to_string()),
         ("hash".into(), hex::encode(hash).to_string()),
     ]);
-
-    let req = PatchObjectRequest {
+    let req = http::objects::patch::PatchObjectRequest {
         bucket: gcs_client.bucket.clone(),
         object: filename.clone(),
         metadata: Some(Object {
@@ -541,7 +539,7 @@ pub async fn write_event(
     }
 
     log::info!(
-        "add signature: {:?}, hash {:?}, to file {:?}",
+        "added signature: {:?}, hash {:?}, to file {:?}",
         hex::encode(signature.clone()),
         hex::encode(output),
         filename

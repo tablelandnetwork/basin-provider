@@ -2,14 +2,13 @@ use base64::{engine::general_purpose, Engine};
 use google_cloud_auth::{credentials::CredentialsFile, error::Error};
 use google_cloud_storage::client::{Client, ClientConfig};
 use google_cloud_storage::http;
-use google_cloud_storage::http::objects::patch;
 
 /// Wrapper for a Google Cloud Storage client.
 #[derive(Clone)]
 pub struct GcsClient {
     pub inner: Client,
     pub bucket: String,
-    pub endpoint: String,
+    endpoint: String,
     access_token: String,
 }
 
@@ -51,7 +50,7 @@ impl GcsClient {
     pub async fn patch_object(
         &self,
         filename: String,
-        req: patch::PatchObjectRequest,
+        req: http::objects::patch::PatchObjectRequest,
     ) -> Result<(), http::Error> {
         let client = reqwest::Client::builder()
             .danger_accept_invalid_certs(true)
