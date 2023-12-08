@@ -57,16 +57,15 @@ impl GcsClient {
     ) -> Result<(), http::Error> {
         let endpoint = Url::parse(&self.endpoint).unwrap();
         let hostname = endpoint.host_str().unwrap();
-        let client;
-        if hostname == "localhost" {
-            client = reqwest::Client::builder()
+        let client = if hostname == "localhost" {
+            reqwest::Client::builder()
                 .danger_accept_invalid_certs(true)
                 .build()
                 .ok()
-                .unwrap();
+                .unwrap()
         } else {
-            client = reqwest::Client::builder().build().ok().unwrap();
-        }
+            reqwest::Client::builder().build().ok().unwrap()
+        };
 
         let url = format!(
             "{}/storage/v1/b/{}/o/{}",
