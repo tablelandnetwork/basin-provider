@@ -45,6 +45,7 @@ thiserror = { workspace = true }
 tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+url = { workspace = true }
 warp = { workspace = true }
 
 [dev-dependencies]

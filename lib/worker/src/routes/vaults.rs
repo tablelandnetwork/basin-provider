@@ -9,8 +9,10 @@ use crate::gcs::GcsClient;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
+use basin_common::ecmh::Hasher;
 use ethers::types::Address;
 use futures::StreamExt;
+use google_cloud_storage::http;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
 use google_cloud_storage::http::objects::{
@@ -22,7 +24,6 @@ use serde::Serialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::convert::Infallible;
-use tiny_keccak::{Hasher, Keccak};
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -348,6 +349,30 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
+async fn add_signature(
+    gcs_client: GcsClient,
+    filename: String,
+    signature: &[u8],
+    hash: &[u8; 32],
+) -> Result<(), http::Error> {
+    let sig_metadata: HashMap<String, String> = HashMap::from([
+        ("signature".into(), hex::encode(signature).to_string()),
+        ("hash".into(), hex::encode(hash).to_string()),
+    ]);
+    let req = http::objects::patch::PatchObjectRequest {
+        bucket: gcs_client.bucket.clone(),
+        object: filename.clone(),
+        metadata: Some(Object {
+            metadata: Some(sig_metadata),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    gcs_client.patch_object(filename, req).await?;
+
+    Ok(())
+}
+
 pub async fn write_event(
     path: String,
     gcs_client: GcsClient,
@@ -457,7 +482,7 @@ pub async fn write_event(
         }
     };
 
-    let mut hasher = Keccak::v256();
+    let mut hasher = Hasher::new();
 
     let mut collected: Vec<u8> = vec![];
     while let Some(buf) = stream.next().await {
@@ -536,6 +561,24 @@ pub async fn write_event(
             ));
         }
     }
+
+    // Patch the GCS object with the signature and hash
+    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
+        log::error!("{}", err);
+        return Ok(with_status(
+            json(&ErrorResponse {
+                error: "failed to add signature to file".to_string(),
+            }),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ));
+    }
+
+    log::info!(
+        "added signature: {:?}, hash {:?}, to file {:?}",
+        hex::encode(signature.clone()),
+        hex::encode(output),
+        filename
+    );
 
     let empty: Vec<u8> = Vec::new();
     Ok(with_status(json(&empty), StatusCode::CREATED))
