@@ -31,7 +31,7 @@ pub async fn spawn_app() -> TestApp {
     let gcs_client = GcsClient::new(
         std::env::var("EXPORT_BUCKET").unwrap(),
         std::env::var("EXPORT_CREDENTIALS").unwrap(),
-        Some(std::env::var("EXPORT_ENDPOINT").unwrap()),
+        std::env::var("EXPORT_ENDPOINT").ok(),
     )
     .await
     .unwrap();
@@ -255,7 +255,7 @@ impl TestApp {
                 &UploadType::Simple(Media::new(filename)),
             )
             .await
-            .unwrap_err();
+            .unwrap();
     }
 }
 

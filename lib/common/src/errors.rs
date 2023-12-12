@@ -14,6 +14,8 @@ pub enum Error {
     Url(String),
     #[error("EVM error: {0}")]
     Evm(String),
+    #[error("Upload error: {0}")]
+    Upload(String),
 }
 
 impl From<sqlx::Error> for Error {

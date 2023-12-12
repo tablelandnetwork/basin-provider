@@ -79,6 +79,7 @@ mod api {
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("vaults" / String / "events")
             .and(warp::post())
+            .and(warp::header::<u64>("content-length"))
             .and(with_gcs_client(gcs_client))
             .and(with_db(db))
             .and(warp::query::<WriteEventParams>())
