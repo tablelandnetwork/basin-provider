@@ -1,5 +1,4 @@
 use crate::helpers::spawn_app;
-use actix_web::http;
 use basin_evm::EVMClient;
 use ethers::{
     core::rand::{thread_rng, Rng},
@@ -174,7 +173,7 @@ async fn download_event_not_found() {
         .await
         .status();
 
-    assert_eq!(http::StatusCode::NOT_FOUND, status);
+    assert_eq!(StatusCode::NOT_FOUND, status);
 }
 
 #[tokio::test]

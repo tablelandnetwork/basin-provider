@@ -24,6 +24,7 @@ services:
       - 8080:8080
     command: start-single-node --insecure --store=type=mem,size=0.5 --advertise-addr=localhost
   gcs:
-    image: fsouza/fake-gcs-server
+    image: brunocalza/fake-gcs-server
+    pull_policy: always
     ports:
       - 4443:4443

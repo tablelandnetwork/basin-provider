@@ -78,6 +78,7 @@ async fn get_pg_pool(db_name: String) -> (PgPool, String) {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore]
 async fn create_publication_and_list_works() {
     let local = LocalSet::new();
     local

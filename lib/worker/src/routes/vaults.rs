@@ -9,7 +9,6 @@ use crate::gcs::GcsClient;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
-use basin_common::ecmh::Hasher;
 use ethers::types::Address;
 use futures::StreamExt;
 use google_cloud_storage::http;
@@ -19,11 +18,15 @@ use google_cloud_storage::http::objects::{
     upload::{UploadObjectRequest, UploadType},
     Object,
 };
+use google_cloud_storage::http::resumable_upload_client::ChunkSize;
+use google_cloud_storage::http::resumable_upload_client::ResumableUploadClient;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use tiny_keccak::{Hasher, Keccak};
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -368,13 +371,15 @@ async fn add_signature(
         }),
         ..Default::default()
     };
-    gcs_client.patch_object(filename, req).await?;
+
+    gcs_client.inner.patch_object(&req).await?;
 
     Ok(())
 }
 
 pub async fn write_event(
     path: String,
+    size: u64,
     gcs_client: GcsClient,
     pool: PgPool,
     params: WriteEventParams,
@@ -454,6 +459,7 @@ pub async fn write_event(
     let upload_type = UploadType::Multipart(Box::new(Object {
         name: filename.to_string(),
         content_type: Some("application/octet-stream".into()),
+        size: size as i64,
         metadata: Some(metadata),
         ..Default::default()
     }));
@@ -482,27 +488,19 @@ pub async fn write_event(
         }
     };
 
-    let mut hasher = Hasher::new();
-
-    let mut collected: Vec<u8> = vec![];
-    while let Some(buf) = stream.next().await {
-        let mut buf = buf.unwrap();
-        while buf.remaining() > 0 {
-            let chunk = buf.chunk();
-            let chunk_len = chunk.len();
-            collected.extend_from_slice(chunk);
-            buf.advance(chunk_len);
+    let hash_output = match upload_stream(uploader, stream.borrow_mut(), size).await {
+        Ok(hasher) => hasher,
+        Err(err) => {
+            log::error!("{}", err);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to upload event".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
         }
+    };
 
-        uploader
-            .upload_single_chunk(collected.clone(), collected.len())
-            .await
-            .unwrap();
-        hasher.update(&collected);
-    }
-
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
     let signature = match &params.signature {
         Some(sig) => {
             let res = hex::decode(sig);
@@ -527,7 +525,7 @@ pub async fn write_event(
         }
     };
 
-    let owner = match crypto::recover(&output, &signature[..64], signature[64] as i32) {
+    let owner = match crypto::recover(&hash_output, &signature[..64], signature[64] as i32) {
         Ok(owner) => owner,
         Err(err) => {
             log::error!("{}", err);
@@ -563,7 +561,9 @@ pub async fn write_event(
     }
 
     // Patch the GCS object with the signature and hash
-    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
+    if let Err(err) =
+        add_signature(gcs_client, filename.to_string(), &signature, &hash_output).await
+    {
         log::error!("{}", err);
         return Ok(with_status(
             json(&ErrorResponse {
@@ -576,7 +576,7 @@ pub async fn write_event(
     log::info!(
         "added signature: {:?}, hash {:?}, to file {:?}",
         hex::encode(signature.clone()),
-        hex::encode(output),
+        hex::encode(hash_output),
         filename
     );
 
@@ -588,4 +588,58 @@ pub async fn write_event(
 pub struct WriteEventParams {
     timestamp: Option<i64>,
     signature: Option<String>,
+}
+
+async fn upload_stream(
+    uploader: ResumableUploadClient,
+    stream: &mut (impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync),
+    size: u64,
+) -> basin_common::errors::Result<[u8; 32]> {
+    let mut hasher = Keccak::v256();
+
+    const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MiB. Must be multiple of 256KiB.
+    let mut received: u64 = 0;
+    let mut collected: Vec<u8> = Vec::new();
+    loop {
+        let first_byte = received;
+        while let Some(buf) = stream.next().await {
+            let mut buf = buf.unwrap();
+            while buf.remaining() > 0 {
+                let chunk = buf.chunk();
+                let chunk_len = chunk.len();
+                collected.extend_from_slice(chunk);
+                buf.advance(chunk_len);
+            }
+
+            if collected.len() >= CHUNK_SIZE {
+                break;
+            }
+        }
+
+        let payload = collected
+            .clone()
+            .into_iter()
+            .take(std::cmp::min(CHUNK_SIZE, collected.len()))
+            .collect::<Vec<_>>();
+        received += payload.len() as u64;
+        let last_byte = received - 1;
+        let chunk_size = ChunkSize::new(first_byte, last_byte, Some(size));
+
+        uploader
+            .upload_multiple_chunk(payload.clone(), &chunk_size)
+            .await
+            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+
+        hasher.update(&payload);
+        collected.drain(0..std::cmp::min(CHUNK_SIZE, collected.len()));
+
+        if collected.is_empty() {
+            break;
+        }
+    }
+
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
+
+    Ok(output)
 }

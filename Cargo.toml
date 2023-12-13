@@ -13,8 +13,6 @@ repository = "https://github.com/tablelandnetwork/basin-provider"
 version = "0.1.0"
 
 [workspace.dependencies]
-actix-multipart = "0.6"
-actix-web = "4"
 anvil = "0.0.1"
 array-bytes = "6.1.0"
 async-trait = "0.1.73"
