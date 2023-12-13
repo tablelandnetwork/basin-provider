@@ -611,7 +611,7 @@ async fn upload_stream(
                 buf.advance(chunk_len);
             }
 
-            if collected.len() > CHUNK_SIZE {
+            if collected.len() >= CHUNK_SIZE {
                 break;
             }
         }
