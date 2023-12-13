@@ -9,7 +9,6 @@ use crate::gcs::GcsClient;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
-use basin_common::ecmh::Hasher;
 use ethers::types::Address;
 use futures::StreamExt;
 use google_cloud_storage::http;
@@ -27,6 +26,7 @@ use sqlx::PgPool;
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use tiny_keccak::{Hasher, Keccak};
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -488,7 +488,7 @@ pub async fn write_event(
         }
     };
 
-    let mut hasher = match upload_stream(uploader, stream.borrow_mut(), size).await {
+    let hash_output = match upload_stream(uploader, stream.borrow_mut(), size).await {
         Ok(hasher) => hasher,
         Err(err) => {
             log::error!("{}", err);
@@ -501,8 +501,6 @@ pub async fn write_event(
         }
     };
 
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
     let signature = match &params.signature {
         Some(sig) => {
             let res = hex::decode(sig);
@@ -527,7 +525,7 @@ pub async fn write_event(
         }
     };
 
-    let owner = match crypto::recover(&output, &signature[..64], signature[64] as i32) {
+    let owner = match crypto::recover(&hash_output, &signature[..64], signature[64] as i32) {
         Ok(owner) => owner,
         Err(err) => {
             log::error!("{}", err);
@@ -563,7 +561,9 @@ pub async fn write_event(
     }
 
     // Patch the GCS object with the signature and hash
-    if let Err(err) = add_signature(gcs_client, filename.to_string(), &signature, &output).await {
+    if let Err(err) =
+        add_signature(gcs_client, filename.to_string(), &signature, &hash_output).await
+    {
         log::error!("{}", err);
         return Ok(with_status(
             json(&ErrorResponse {
@@ -576,7 +576,7 @@ pub async fn write_event(
     log::info!(
         "added signature: {:?}, hash {:?}, to file {:?}",
         hex::encode(signature.clone()),
-        hex::encode(output),
+        hex::encode(hash_output),
         filename
     );
 
@@ -594,8 +594,8 @@ async fn upload_stream(
     uploader: ResumableUploadClient,
     stream: &mut (impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync),
     size: u64,
-) -> basin_common::errors::Result<Hasher> {
-    let mut hasher = Hasher::new();
+) -> basin_common::errors::Result<[u8; 32]> {
+    let mut hasher = Keccak::v256();
 
     const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MiB. Must be multiple of 256KiB.
     let mut received: u64 = 0;
@@ -638,5 +638,8 @@ async fn upload_stream(
         }
     }
 
-    Ok(hasher)
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
+
+    Ok(output)
 }
