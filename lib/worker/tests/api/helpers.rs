@@ -1,5 +1,4 @@
 use basin_common::db;
-use basin_common::ecmh::Hasher;
 use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
 use basin_worker::gcs::GcsClient;
@@ -20,6 +19,7 @@ use reqwest::Response;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sqlx::PgPool;
 use std::net::SocketAddr;
+use tiny_keccak::{Hasher, Keccak};
 
 pub async fn spawn_app() -> TestApp {
     let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
@@ -190,7 +190,7 @@ impl TestApp {
         event_content: [u8; 256],
     ) -> Response {
         // calculating hash
-        let mut hasher = Hasher::new();
+        let mut hasher = Keccak::v256();
         hasher.update(&event_content[..256]);
         let mut output = [0u8; 32];
         hasher.finalize(&mut output);
