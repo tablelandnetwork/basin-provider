@@ -135,6 +135,50 @@ pub async fn pub_cids(
     Ok(rows)
 }
 
+#[warn(clippy::too_many_arguments)]
+pub async fn create_job(
+    pool: &PgPool,
+    ns: &String,
+    rel: &String,
+    cid: Vec<u8>,
+    timestamp: Option<i64>,
+    cache_path: String,
+    cache_duration: Option<i64>,
+    signature: Vec<u8>,
+    hash: Vec<u8>,
+) -> Result<()> {
+    let expires_at = match cache_duration {
+        Some(duration) => chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::minutes(duration))
+            .unwrap()
+            .naive_utc(),
+        None => chrono::Utc::now().naive_utc(),
+    };
+
+    sqlx::query!(
+        "INSERT INTO jobs (
+            ns_id, cid, relation, timestamp, cache_path,
+            expires_at, signature, hash
+        ) 
+        SELECT id, $2, $3, $4, $5, $6, $7, $8
+        FROM namespaces
+        WHERE name = $1",
+        ns,
+        cid,
+        rel,
+        timestamp.unwrap_or(chrono::Utc::now().timestamp()),
+        cache_path,
+        expires_at,
+        signature,
+        hash
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    Ok(())
+}
+
 pub async fn find_job_cache_path_by_cid(pool: &PgPool, cid: Cid) -> Result<Option<CachePath>> {
     sqlx::query(
         format!(
