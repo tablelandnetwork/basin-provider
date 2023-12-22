@@ -36,7 +36,8 @@ async fn spawn_worker(pool: PgPool) -> SocketAddr {
     .await
     .unwrap();
 
-    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
+    let w3s_token = std::env::var("W3S_TOKEN").unwrap();
+    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string(), w3s_token);
 
     spawn_local(async move {
         rpc::listen(

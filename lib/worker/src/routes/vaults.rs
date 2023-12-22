@@ -5,13 +5,13 @@ use crate::db;
 use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
+use crate::web3storage;
 
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
 use ethers::types::Address;
 use futures::StreamExt;
-use google_cloud_storage::http;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
 use google_cloud_storage::http::objects::{
@@ -24,9 +24,13 @@ use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
 use std::convert::Infallible;
+use std::io::Write;
+use std::sync::{Arc, Mutex};
 use tiny_keccak::{Hasher, Keccak};
+use w3s::writer::car;
+use w3s::writer::uploader;
+use w3s::writer::ChainWrite;
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -352,35 +356,11 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
-async fn add_signature(
-    gcs_client: GcsClient,
-    filename: String,
-    signature: &[u8],
-    hash: &[u8; 32],
-) -> Result<(), http::Error> {
-    let sig_metadata: HashMap<String, String> = HashMap::from([
-        ("signature".into(), hex::encode(signature).to_string()),
-        ("hash".into(), hex::encode(hash).to_string()),
-    ]);
-    let req = http::objects::patch::PatchObjectRequest {
-        bucket: gcs_client.bucket.clone(),
-        object: filename.clone(),
-        metadata: Some(Object {
-            metadata: Some(sig_metadata),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-
-    gcs_client.inner.patch_object(&req).await?;
-
-    Ok(())
-}
-
 pub async fn write_event(
     path: String,
     size: u64,
     gcs_client: GcsClient,
+    w3s_client: web3storage::Web3StorageClient,
     pool: PgPool,
     params: WriteEventParams,
     mut stream: impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync,
@@ -433,23 +413,6 @@ pub async fn write_event(
             }
         };
 
-    let mut metadata: HashMap<String, String> = HashMap::from([(
-        "timestamp".into(),
-        format!(
-            "{}",
-            params
-                .timestamp
-                .unwrap_or(chrono::offset::Utc::now().timestamp())
-        ),
-    )]);
-
-    if cache_duration.is_some() {
-        metadata.insert(
-            "cache_duration".into(),
-            format!("{}", cache_duration.unwrap()),
-        );
-    }
-
     let filename = format!(
         "{}/{}/{}.parquet",
         vault.namespace(),
@@ -460,7 +423,7 @@ pub async fn write_event(
         name: filename.to_string(),
         content_type: Some("application/octet-stream".into()),
         size: size as i64,
-        metadata: Some(metadata),
+        metadata: None,
         ..Default::default()
     }));
 
@@ -475,7 +438,7 @@ pub async fn write_event(
         )
         .await;
 
-    let uploader = match uploader {
+    let gcs_uploader = match uploader {
         Ok(v) => v,
         Err(e) => {
             log::error!("{}", e);
@@ -488,18 +451,36 @@ pub async fn write_event(
         }
     };
 
-    let hash_output = match upload_stream(uploader, stream.borrow_mut(), size).await {
-        Ok(hasher) => hasher,
-        Err(err) => {
-            log::error!("{}", err);
-            return Ok(with_status(
-                json(&ErrorResponse {
-                    error: "failed to upload event".to_string(),
-                }),
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-    };
+    // replace "/" with "_" in filename to avoid messing up ipfs path
+    let w3s_filename = filename.replace('/', "_");
+
+    // W3S car writer + uploader setup
+    let w3s_uploader = w3s_client.get_uploader(w3s_filename.clone());
+    let w3s_car = car::Car::new(
+        1,
+        Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
+            &w3s_filename,
+            None,
+        )])),
+        None,
+        None,
+        w3s_uploader,
+    );
+
+    let (hash_output, cid) =
+        match upload_stream(gcs_uploader, w3s_car, stream.borrow_mut(), size).await {
+            Ok((hash, cid)) => (hash, cid),
+            Err(err) => {
+                log::error!("{}", err);
+                eprintln!("upload_stream error: {}", err);
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "failed to upload event".to_string(),
+                    }),
+                    StatusCode::BAD_REQUEST,
+                ));
+            }
+        };
 
     let signature = match &params.signature {
         Some(sig) => {
@@ -512,7 +493,6 @@ pub async fn write_event(
                     StatusCode::BAD_REQUEST,
                 ));
             }
-
             res.unwrap()
         }
         None => {
@@ -560,25 +540,29 @@ pub async fn write_event(
         }
     }
 
-    // Patch the GCS object with the signature and hash
-    if let Err(err) =
-        add_signature(gcs_client, filename.to_string(), &signature, &hash_output).await
-    {
+    // Create the job in the database
+    let job = db::create_job(
+        &pool,
+        &vault.namespace(),
+        &vault.relation(),
+        cid,
+        params.timestamp,
+        filename,
+        cache_duration,
+        signature.to_vec(),
+        hash_output.to_vec(),
+    )
+    .await;
+
+    if let Err(err) = job {
         log::error!("{}", err);
         return Ok(with_status(
             json(&ErrorResponse {
-                error: "failed to add signature to file".to_string(),
+                error: "failed to create job".to_string(),
             }),
             StatusCode::INTERNAL_SERVER_ERROR,
         ));
     }
-
-    log::info!(
-        "added signature: {:?}, hash {:?}, to file {:?}",
-        hex::encode(signature.clone()),
-        hex::encode(hash_output),
-        filename
-    );
 
     let empty: Vec<u8> = Vec::new();
     Ok(with_status(json(&empty), StatusCode::CREATED))
@@ -591,15 +575,16 @@ pub struct WriteEventParams {
 }
 
 async fn upload_stream(
-    uploader: ResumableUploadClient,
+    gcs_uploader: ResumableUploadClient,
+    mut w3s_car: car::Car<uploader::Uploader>,
     stream: &mut (impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync),
     size: u64,
-) -> basin_common::errors::Result<[u8; 32]> {
+) -> basin_common::errors::Result<([u8; 32], Vec<u8>)> {
     let mut hasher = Keccak::v256();
-
     const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MiB. Must be multiple of 256KiB.
     let mut received: u64 = 0;
     let mut collected: Vec<u8> = Vec::new();
+
     loop {
         let first_byte = received;
         while let Some(buf) = stream.next().await {
@@ -625,11 +610,19 @@ async fn upload_stream(
         let last_byte = received - 1;
         let chunk_size = ChunkSize::new(first_byte, last_byte, Some(size));
 
-        uploader
+        gcs_uploader
             .upload_multiple_chunk(payload.clone(), &chunk_size)
             .await
             .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
+        // write payload bytes to w3s car writer
+        // if the car buffer is full, payload will be uploaded to w3s
+        w3s_car
+            .write_all(payload.as_slice())
+            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+        eprintln!("=== WROTE TO CAR ===");
+
+        // update hasher
         hasher.update(&payload);
         collected.drain(0..std::cmp::min(CHUNK_SIZE, collected.len()));
 
@@ -638,8 +631,30 @@ async fn upload_stream(
         }
     }
 
+    // finish uploading w3s car file
+    w3s_car
+        .flush()
+        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+    eprintln!("=== done flush ===");
+    let mut w3s_uploader = w3s_car.next();
+
+    let result_cids = w3s_uploader
+        .finish_results()
+        .await
+        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+
+    eprintln!("=== completed result ===");
+
+    let cid = result_cids
+        .first()
+        .ok_or(basin_common::errors::Error::Upload(
+            "no cids returned".to_string(),
+        ))?;
+
+    log::info!("uploaded file with cids: {:?}", cid);
+
     let mut output = [0u8; 32];
     hasher.finalize(&mut output);
 
-    Ok(output)
+    Ok((output, cid.to_bytes()))
 }

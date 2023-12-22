@@ -62,6 +62,10 @@ struct Cli {
     #[arg(long, env)]
     database_url: String,
 
+    /// Web3Storage API token
+    #[arg(long, env)]
+    w3s_token: String,
+
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
     bind_address: SocketAddr,
@@ -118,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.export_endpoint,
     )
     .await?;
-    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string());
+    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string(), args.w3s_token);
 
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
 
@@ -205,9 +209,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let p = pool.clone();
             let c = evm_client.clone();
             let gcs = gcs_client.clone();
+            let w3s = web3store_client.clone();
             tokio::spawn(async move {
                 info!("HTTP API started");
-                let (_, server) = startup::start_http_server(args.bind_health_address, p, c, gcs);
+                let (_, server) =
+                    startup::start_http_server(args.bind_health_address, p, c, gcs, w3s);
                 server.await;
             });
 
