@@ -14,7 +14,6 @@ pub async fn handle_warp_rejection(err: Rejection) -> Result<impl Reply, Infalli
     let (code, message) = if err.is_not_found() {
         (StatusCode::NOT_FOUND, "Not Found".to_string())
     } else {
-        eprintln!("unhandled error: {:?}", err);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             "Internal Server Error".to_string(),

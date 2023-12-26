@@ -29,7 +29,6 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 use tiny_keccak::{Hasher, Keccak};
 use w3s::writer::car;
-use w3s::writer::uploader;
 use w3s::writer::ChainWrite;
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
@@ -451,36 +450,18 @@ pub async fn write_event(
         }
     };
 
-    // replace "/" with "_" in filename to avoid messing up ipfs path
-    let w3s_filename = filename.replace('/', "_");
-
-    // W3S car writer + uploader setup
-    let w3s_uploader = w3s_client.get_uploader(w3s_filename.clone());
-    let w3s_car = car::Car::new(
-        1,
-        Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
-            &w3s_filename,
-            None,
-        )])),
-        None,
-        None,
-        w3s_uploader,
-    );
-
-    let (hash_output, cid) =
-        match upload_stream(gcs_uploader, w3s_car, stream.borrow_mut(), size).await {
-            Ok((hash, cid)) => (hash, cid),
-            Err(err) => {
-                log::error!("{}", err);
-                eprintln!("upload_stream error: {}", err);
-                return Ok(with_status(
-                    json(&ErrorResponse {
-                        error: "failed to upload event".to_string(),
-                    }),
-                    StatusCode::BAD_REQUEST,
-                ));
-            }
-        };
+    let hash_output = match upload_stream(gcs_uploader, stream.borrow_mut(), size).await {
+        Ok(hash) => hash,
+        Err(err) => {
+            log::error!("{}", err);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to upload event".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
 
     let signature = match &params.signature {
         Some(sig) => {
@@ -540,12 +521,24 @@ pub async fn write_event(
         }
     }
 
+    let cid_bytes = match upload_w3s(gcs_client, w3s_client, &filename).await {
+        Ok(cid) => cid,
+        Err(err) => {
+            log::error!("{}", err);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "failed to upload to w3s".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
     // Create the job in the database
     let job = db::create_job(
         &pool,
-        &vault.namespace(),
-        &vault.relation(),
-        cid,
+        &vault,
+        cid_bytes,
         params.timestamp,
         filename,
         cache_duration,
@@ -576,10 +569,9 @@ pub struct WriteEventParams {
 
 async fn upload_stream(
     gcs_uploader: ResumableUploadClient,
-    mut w3s_car: car::Car<uploader::Uploader>,
     stream: &mut (impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync),
     size: u64,
-) -> basin_common::errors::Result<([u8; 32], Vec<u8>)> {
+) -> basin_common::errors::Result<[u8; 32]> {
     let mut hasher = Keccak::v256();
     const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MiB. Must be multiple of 256KiB.
     let mut received: u64 = 0;
@@ -615,12 +607,8 @@ async fn upload_stream(
             .await
             .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
-        // write payload bytes to w3s car writer
-        // if the car buffer is full, payload will be uploaded to w3s
-        w3s_car
-            .write_all(payload.as_slice())
-            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
-        eprintln!("=== WROTE TO CAR ===");
+        let url = gcs_uploader.url();
+        eprintln!("uploaded chunk to {}", url);
 
         // update hasher
         hasher.update(&payload);
@@ -631,11 +619,55 @@ async fn upload_stream(
         }
     }
 
-    // finish uploading w3s car file
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
+
+    Ok(output)
+}
+
+async fn upload_w3s(
+    gcs_client: GcsClient,
+    w3s_client: web3storage::Web3StorageClient,
+    filename: &String,
+) -> basin_common::errors::Result<Vec<u8>> {
+    let mut download_stream = gcs_client
+        .inner
+        .download_streamed_object(
+            &GetObjectRequest {
+                bucket: gcs_client.bucket.clone(),
+                object: filename.clone(),
+                ..Default::default()
+            },
+            &Range::default(),
+        )
+        .await
+        .unwrap();
+
+    // replace "/" with "_" in filename to avoid messing up ipfs path
+    let w3s_filename = filename.replace('/', "_");
+    // Create W3S uploader
+    let w3s_uploader = w3s_client.get_uploader(w3s_filename.clone());
+    // Create a new Car writer
+    let mut w3s_car = car::Car::new(
+        1,
+        Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
+            &w3s_filename,
+            None,
+        )])),
+        None,
+        None,
+        w3s_uploader,
+    );
+    
+    while let Some(data) = download_stream.next().await {
+        w3s_car
+            .write_all(data.unwrap().as_ref())
+            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+    }
+
     w3s_car
         .flush()
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
-    eprintln!("=== done flush ===");
     let mut w3s_uploader = w3s_car.next();
 
     let result_cids = w3s_uploader
@@ -643,18 +675,13 @@ async fn upload_stream(
         .await
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
-    eprintln!("=== completed result ===");
-
-    let cid = result_cids
-        .first()
+    let result_root_cid = result_cids
+        .last()
         .ok_or(basin_common::errors::Error::Upload(
             "no cids returned".to_string(),
-        ))?;
+        ));
+    let cid = result_root_cid.unwrap().to_owned();
+    log::info!("uploaded file to w3s: {:?}", cid);
 
-    log::info!("uploaded file with cids: {:?}", cid);
-
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
-
-    Ok((output, cid.to_bytes()))
+    Ok(cid.to_bytes())
 }

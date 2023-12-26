@@ -222,7 +222,7 @@ async fn create_vault() {
     assert_eq!("api.test", vaults[0]);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn write_event() {
     let app = spawn_app().await;
 

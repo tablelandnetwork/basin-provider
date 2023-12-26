@@ -1,5 +1,7 @@
 use reqwest::Client;
 use serde::Deserialize;
+use std::sync::Arc;
+use std::sync::Mutex;
 use thiserror::Error;
 use w3s::writer::uploader;
 
@@ -88,8 +90,10 @@ impl Web3StorageClient {
             self.base_url.clone(),
             filename,
             uploader::UploadType::Car,
-            2,
-            None,
+            1,
+            Some(Arc::new(Mutex::new(|name, part, pos, total| {
+                log::debug!("name: {name} part:{part} {pos}/{total}");
+            }))),
         )
     }
 }
