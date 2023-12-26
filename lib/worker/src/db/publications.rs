@@ -135,11 +135,10 @@ pub async fn pub_cids(
     Ok(rows)
 }
 
-#[warn(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_job(
     pool: &PgPool,
-    ns: &String,
-    rel: &String,
+    vault: &Vault,
     cid: Vec<u8>,
     timestamp: Option<i64>,
     cache_path: String,
@@ -157,15 +156,15 @@ pub async fn create_job(
 
     sqlx::query!(
         "INSERT INTO jobs (
-            ns_id, cid, relation, timestamp, cache_path,
+            ns_id, relation, cid, timestamp, cache_path,
             expires_at, signature, hash
         ) 
         SELECT id, $2, $3, $4, $5, $6, $7, $8
         FROM namespaces
         WHERE name = $1",
-        ns,
+        vault.namespace(),
+        vault.relation(),
         cid,
-        rel,
         timestamp.unwrap_or(chrono::Utc::now().timestamp()),
         cache_path,
         expires_at,
