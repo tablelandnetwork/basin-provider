@@ -3,7 +3,7 @@ use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
 use basin_worker::gcs::GcsClient;
 use basin_worker::routes::CreateVaultInput;
-use basin_worker::web3storage;
+use basin_worker::web3storage::Web3StorageClient;
 use chrono::NaiveDateTime;
 use ethers::{
     core::{
@@ -71,7 +71,7 @@ pub async fn spawn_app() -> TestApp {
     // Web3Storage client will send requests to the mock server
     let token = String::from("");
     let w3s_mock_server_host = "http://127.0.0.1:33333".to_string();
-    let w3s_client = web3storage::Web3StorageClient::new(w3s_mock_server_host, token);
+    let w3s_client = Web3StorageClient::new(w3s_mock_server_host, token);
     tokio::spawn(async {
         let echo_route = warp::post()
             .and(warp::path("car"))
