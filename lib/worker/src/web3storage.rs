@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use thiserror::Error;
+use w3s::writer::car;
 use w3s::writer::uploader;
 
 #[allow(dead_code)]
@@ -94,6 +95,22 @@ impl Web3StorageClient {
             Some(Arc::new(Mutex::new(|name, part, pos, total| {
                 log::debug!("name: {name} part:{part} {pos}/{total}");
             }))),
+        )
+    }
+
+    pub fn get_car_writer(
+        &self,
+        filename: String,
+        uploader: uploader::Uploader,
+    ) -> car::Car<uploader::Uploader> {
+        car::Car::new(
+            1,
+            Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
+                &filename, None,
+            )])),
+            None,
+            None,
+            uploader,
         )
     }
 }
