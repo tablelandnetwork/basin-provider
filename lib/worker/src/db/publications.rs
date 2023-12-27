@@ -172,8 +172,7 @@ pub async fn create_job(
         hash
     )
     .execute(pool)
-    .await
-    .unwrap();
+    .await?;
 
     Ok(())
 }

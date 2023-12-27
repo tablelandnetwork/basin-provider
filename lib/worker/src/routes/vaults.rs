@@ -5,7 +5,7 @@ use crate::db;
 use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
-use crate::web3storage;
+use crate::web3storage::Web3StorageClient;
 
 use basin_evm::EVMClient;
 use chrono::DateTime;
@@ -357,7 +357,7 @@ pub async fn write_event(
     path: String,
     size: u64,
     gcs_client: GcsClient,
-    w3s_client: web3storage::Web3StorageClient,
+    w3s_client: Web3StorageClient,
     pool: PgPool,
     params: WriteEventParams,
     mut stream: impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync,
@@ -472,6 +472,7 @@ pub async fn write_event(
                     StatusCode::BAD_REQUEST,
                 ));
             }
+
             res.unwrap()
         }
         None => {
@@ -496,7 +497,7 @@ pub async fn write_event(
             ));
         }
     };
-    eprintln!("upload complete, checking signature: {:?}", owner);
+
     match db::is_namespace_owner(&pool, &vault.namespace(), owner).await {
         Ok(is_owner) => {
             if !is_owner {
@@ -544,7 +545,6 @@ pub async fn write_event(
         hash_output.to_vec(),
     )
     .await;
-
     if let Err(err) = job {
         log::error!("{}", err);
         return Ok(with_status(
@@ -571,10 +571,10 @@ async fn upload_stream(
     size: u64,
 ) -> basin_common::errors::Result<[u8; 32]> {
     let mut hasher = Keccak::v256();
+
     const CHUNK_SIZE: usize = 8 * 1024 * 1024; // 8MiB. Must be multiple of 256KiB.
     let mut received: u64 = 0;
     let mut collected: Vec<u8> = Vec::new();
-
     loop {
         let first_byte = received;
         while let Some(buf) = stream.next().await {
@@ -621,7 +621,7 @@ async fn upload_stream(
 
 async fn upload_w3s(
     gcs_client: GcsClient,
-    w3s_client: web3storage::Web3StorageClient,
+    w3s_client: Web3StorageClient,
     filename: &str,
 ) -> basin_common::errors::Result<Vec<u8>> {
     let mut download_stream = gcs_client
@@ -635,7 +635,7 @@ async fn upload_w3s(
             &Range::default(),
         )
         .await
-        .unwrap();
+        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
     // replace "/" with "_" in filename to avoid messing up ipfs path
     let w3s_filename = filename.replace('/', "_");
@@ -644,9 +644,9 @@ async fn upload_w3s(
     // Create a new Car writer
     let mut w3s_car = w3s_client.get_car_writer(w3s_filename, uploader);
 
-    while let Some(data) = download_stream.next().await {
+    while let Some(Ok(data)) = download_stream.next().await {
         w3s_car
-            .write_all(data.unwrap().as_ref())
+            .write_all(data.as_ref())
             .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
     }
 
@@ -663,9 +663,9 @@ async fn upload_w3s(
     let result_root_cid = result_cids
         .last()
         .ok_or(basin_common::errors::Error::Upload(
-            "no cids returned".to_string(),
-        ));
-    let cid = result_root_cid.unwrap().to_owned();
+            "w3s upload failed: no cids returned".to_string(),
+        ))?;
+    let cid = result_root_cid.to_owned();
     log::info!("uploaded file to w3s: {:?}", cid);
 
     Ok(cid.to_bytes())

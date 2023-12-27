@@ -1,5 +1,5 @@
 use crate::gcs::GcsClient;
-use crate::web3storage;
+use crate::web3storage::Web3StorageClient;
 
 use basin_evm::EVMClient;
 use sqlx::postgres::PgPool;
@@ -12,7 +12,7 @@ pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
     db_pool: PgPool,
     evm_client: E,
     gcs_client: GcsClient,
-    w3s_client: web3storage::Web3StorageClient,
+    w3s_client: Web3StorageClient,
 ) -> (SocketAddr, impl Future<Output = ()>) {
     warp::serve(api::routes(db_pool, evm_client, gcs_client, w3s_client)).bind_ephemeral(addr)
 }
