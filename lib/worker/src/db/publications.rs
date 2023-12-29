@@ -146,13 +146,12 @@ pub async fn create_job(
     signature: Vec<u8>,
     hash: Vec<u8>,
 ) -> Result<()> {
-    let expires_at = match cache_duration {
-        Some(duration) => chrono::Utc::now()
+    let expires_at = cache_duration.map(|duration| {
+        chrono::Utc::now()
             .checked_add_signed(chrono::Duration::minutes(duration))
             .unwrap()
-            .naive_utc(),
-        None => chrono::Utc::now().naive_utc(),
-    };
+            .naive_utc()
+    });
 
     sqlx::query!(
         "INSERT INTO jobs (
