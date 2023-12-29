@@ -45,6 +45,7 @@ spec:
             "--evm-chain-id", "$(EVM_CHAIN_ID)",
             "--bind-address", "$(BIND_ADDRESS)",
             "--bind-health-address", "$(BIND_HEALTH_ADDRESS)",
+            "--w3s-token", "$(W3S_TOKEN)",
             "-vvvvv"
           ]
           env:
@@ -63,6 +64,11 @@ spec:
                 secretKeyRef:
                   name: basin-secret
                   key: evm-wallet-pk
+            - name: W3S_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: basin-secret
+                  key: w3s-token
           envFrom:
             - configMapRef:
                 name: configmap-basin-worker

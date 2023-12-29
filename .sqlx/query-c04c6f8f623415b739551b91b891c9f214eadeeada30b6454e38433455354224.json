@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jobs (\n            ns_id, relation, cid, timestamp, cache_path,\n            expires_at, signature, hash\n        ) \n        SELECT id, $2, $3, $4, $5, $6, $7, $8\n        FROM namespaces\n        WHERE name = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bytea",
+        "Int8",
+        "Text",
+        "Timestamp",
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c04c6f8f623415b739551b91b891c9f214eadeeada30b6454e38433455354224"
+}

@@ -18,10 +18,12 @@ array-bytes = "6.1.0"
 async-trait = "0.1.73"
 backon = "0.4.1"
 base64 = "0.21.4"
+bytes = "1.0.1"
 capnp = "0.18.1"
 capnp-rpc = "0.18.0"
 capnpc = "0.18.0"
 chrono = { version = "0.4", features = ["serde"] }
+cid = "0.11.0"
 clap = { version = "4.4.4", features = ["derive", "env"] }
 curve25519-dalek = { version = "4.1.1", features = [
     "digest",
@@ -35,7 +37,14 @@ google-cloud-auth = "0.13.0"
 google-cloud-default = { version = "0.4.0", features = ["storage"] }
 google-cloud-storage = "0.15.0"
 hex = "0.4.3"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+hyper = { version = "0.14", features = [
+    "stream",
+    "server",
+    "http1",
+    "http2",
+    "tcp",
+    "client",
+] }
 jemallocator = "0.5.4"
 log = "0.4.1"
 multibase = "0.9"
@@ -59,8 +68,8 @@ tokio = { version = "1.32.0", features = ["macros", "net", "rt"] }
 tokio-cron-scheduler = { version = "0.9.4", features = ["signal"] }
 tokio-util = { version = "0.7.8", features = ["compat"] }
 url = "2.4.1"
+w3s = { git = "https://github.com/avichalp/w3s-rs", branch = "main" }
 warp = "0.3"
-
 
 [profile.release]
 codegen-units = 1
