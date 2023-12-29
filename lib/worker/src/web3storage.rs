@@ -1,5 +1,6 @@
+use chrono::NaiveDateTime;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
 #[allow(dead_code)]
@@ -29,20 +30,21 @@ pub struct Pin {
 #[derive(Deserialize, Debug)]
 pub struct Deal {
     #[serde(rename = "dealId")]
-    deal_id: Option<u32>,
+    pub deal_id: Option<u32>,
     #[serde(rename = "storageProvider")]
-    storage_provider: Option<String>,
-    status: String,
+    pub storage_provider: Option<String>,
+    pub status: String,
     #[serde(rename = "pieceCid")]
-    piece_cid: String,
+    pub piece_cid: String,
     #[serde(rename = "dataCid")]
-    data_cid: String,
+    pub data_cid: String,
     #[serde(rename = "dataModelSelector")]
-    data_model_selector: String,
-    activation: Option<String>,
-    expiration: Option<String>,
-    created: Option<String>,
-    updated: Option<String>,
+    pub data_model_selector: String,
+    #[serde(deserialize_with = "naive_date_time_from_str")]
+    pub activation: Option<NaiveDateTime>,
+    pub expiration: Option<String>,
+    pub created: Option<String>,
+    pub updated: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -58,6 +60,20 @@ pub const DEFAULT_BASE_URL: &str = "https://api.web3.storage";
 #[derive(Clone)]
 pub struct Web3StorageClient {
     base_url: String,
+}
+
+fn naive_date_time_from_str<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value_opt: Option<String> = Deserialize::deserialize(deserializer).ok();
+    match value_opt {
+        Some(v) => match NaiveDateTime::parse_from_str(v.as_str(), "%Y-%m-%dT%H:%M:%S%:z") {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => Err(serde::de::Error::custom(err.to_string())),
+        },
+        None => Ok(None),
+    }
 }
 
 impl Web3StorageClient {
@@ -84,6 +100,7 @@ impl Web3StorageClient {
 #[cfg(test)]
 mod tests {
     use crate::web3storage::Web3StorageClient;
+    use chrono::NaiveDateTime;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -147,7 +164,7 @@ mod tests {
             status.deals[0].data_model_selector
         );
         assert_eq!(
-            Some("2023-10-31T07:33:00+00:00".to_string()),
+            NaiveDateTime::parse_from_str("2023-10-31T07:33:00+00:00", "%Y-%m-%dT%H:%M:%S%:z").ok(),
             status.deals[0].activation
         );
         assert_eq!(

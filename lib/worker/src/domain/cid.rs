@@ -1,6 +1,6 @@
 use multibase::decode;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cid(Vec<u8>);
 
 impl Cid {

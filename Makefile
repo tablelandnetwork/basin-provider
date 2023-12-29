@@ -10,6 +10,7 @@ format:
 	(cd ./lib/evm; cargo tomlfmt)
 	(cd ./lib/protocol; cargo tomlfmt)
 	(cd ./lib/worker; cargo tomlfmt)
+	(cd ./lib/status_checker; cargo tomlfmt)
 .PHONY: format
 
 install:

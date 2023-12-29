@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib/common", "lib/evm", "lib/protocol", "lib/worker"]
+members = ["lib/common", "lib/evm", "lib/protocol", "lib/worker", "lib/status_checker"]
 resolver = "2"
 
 [workspace.package]
