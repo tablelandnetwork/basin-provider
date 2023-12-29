@@ -74,6 +74,15 @@ impl EVMClient for MockClient {
             .await
             .map_err(|e| Error::Evm(e.to_string()))
     }
+
+    async fn add_cid(&self, vault: String, cid: String, timestamp: i64) -> Result<()> {
+        self.contract
+            .add_cid(vault, cid, ethers::types::U256::from(timestamp))
+            .send()
+            .await
+            .map_err(|e| Error::Evm(e.to_string()))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

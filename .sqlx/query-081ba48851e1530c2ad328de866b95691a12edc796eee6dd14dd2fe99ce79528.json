@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE jobs SET activated = $1 WHERE cid = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamp",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "081ba48851e1530c2ad328de866b95691a12edc796eee6dd14dd2fe99ce79528"
+}

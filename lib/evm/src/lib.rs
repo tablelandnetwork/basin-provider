@@ -21,4 +21,7 @@ pub trait EVMClient: Clone + Send {
 
     // List publications from a specific owner.
     async fn list_pub(&self, owner: Address) -> Result<Vec<String>>;
+
+    // Adds CID to index
+    async fn add_cid(&self, vault: String, cid: String, timestamp: i64) -> Result<()>;
 }

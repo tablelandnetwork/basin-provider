@@ -16,6 +16,8 @@ pub enum Error {
     Evm(String),
     #[error("Upload error: {0}")]
     Upload(String),
+    #[error("W3S JSON error: {0}")]
+    Web3StorageJson(String),
 }
 
 impl From<sqlx::Error> for Error {
