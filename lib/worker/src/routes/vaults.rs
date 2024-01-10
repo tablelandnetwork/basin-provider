@@ -1,4 +1,7 @@
+use std::io::Cursor;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::crypto;
 use crate::db;
@@ -8,6 +11,8 @@ use crate::gcs::GcsClient;
 use crate::web3storage::Web3StorageClient;
 
 use basin_evm::EVMClient;
+use blockless_car::reader::new_v1;
+use blockless_car::reader::CarReader;
 use chrono::DateTime;
 
 use ethers::types::Address;
@@ -23,6 +28,8 @@ use google_cloud_storage::http::resumable_upload_client::ResumableUploadClient;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
+use w3s::writer::car;
+
 use std::borrow::BorrowMut;
 use std::convert::Infallible;
 use std::io::Write;
@@ -520,7 +527,7 @@ pub async fn write_event(
         }
     }
 
-    let cid_bytes = match upload_w3s(gcs_client, w3s_client, &filename).await {
+    let cid_bytes = match upload_w3s_mock(gcs_client, w3s_client, &filename).await {
         Ok(cid) => cid,
         Err(err) => {
             log::error!("{}", err);
@@ -619,6 +626,7 @@ async fn upload_stream(
     Ok(output)
 }
 
+#[allow(dead_code)]
 async fn upload_w3s(
     gcs_client: GcsClient,
     w3s_client: Web3StorageClient,
@@ -665,6 +673,63 @@ async fn upload_w3s(
         .ok_or(basin_common::errors::Error::Upload(
             "w3s upload failed: no cids returned".to_string(),
         ))?;
+    let cid = result_root_cid.to_owned();
+    log::info!("uploaded file to w3s: {:?}", cid);
+
+    Ok(cid.to_bytes())
+}
+
+async fn upload_w3s_mock(
+    gcs_client: GcsClient,
+    _w3s_client: Web3StorageClient,
+    filename: &str,
+) -> basin_common::errors::Result<Vec<u8>> {
+    let mut download_stream = gcs_client
+        .inner
+        .download_streamed_object(
+            &GetObjectRequest {
+                bucket: gcs_client.bucket.clone(),
+                object: filename.to_string(),
+                ..Default::default()
+            },
+            &Range::default(),
+        )
+        .await
+        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+
+    // replace "/" with "_" in filename to avoid messing up ipfs path
+    let _w3s_filename = filename.replace('/', "_");
+
+    let mut buffer = Vec::new();
+    //let mut writer = Cursor::new(&mut buffer);
+    // Create a new Car writer
+    let mut w3s_car = car::Car::new(
+        1,
+        Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
+            filename, None,
+        )])),
+        None,
+        None,
+        &mut buffer,
+    );
+
+    while let Some(Ok(data)) = download_stream.next().await {
+        w3s_car
+            .write_all(data.as_ref())
+            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+    }
+
+    w3s_car
+        .flush()
+        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+
+    let mut reader = Cursor::new(&buffer);
+    let car_reader = new_v1(&mut reader).unwrap();
+
+    let roots = car_reader.header().roots();
+    let result_root_cid = roots.last().ok_or(basin_common::errors::Error::Upload(
+        "w3s upload failed: no cids returned".to_string(),
+    ))?;
     let cid = result_root_cid.to_owned();
     log::info!("uploaded file to w3s: {:?}", cid);
 

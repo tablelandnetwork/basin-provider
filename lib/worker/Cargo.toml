@@ -18,6 +18,7 @@ base64 = { workspace = true }
 basin_common = { path = "../common" }
 basin_evm = { path = "../evm" }
 basin_protocol = { path = "../protocol" }
+blockless-car = { workspace = true }
 bytes = { workspace = true }
 capnp = { workspace = true }
 capnp-rpc = { workspace = true }
