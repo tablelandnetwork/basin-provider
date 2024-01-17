@@ -1,6 +1,10 @@
 use reqwest::Client;
 use serde::Deserialize;
+use std::sync::Arc;
+use std::sync::Mutex;
 use thiserror::Error;
+use w3s::writer::car;
+use w3s::writer::uploader;
 
 #[allow(dead_code)]
 #[derive(Deserialize, Debug)]
@@ -58,11 +62,12 @@ pub const DEFAULT_BASE_URL: &str = "https://api.web3.storage";
 #[derive(Clone)]
 pub struct Web3StorageClient {
     base_url: String,
+    token: String,
 }
 
 impl Web3StorageClient {
-    pub fn new(base_url: String) -> Self {
-        Self { base_url }
+    pub fn new(base_url: String, token: String) -> Self {
+        Self { base_url, token }
     }
 
     pub async fn status_of_cid(&self, cid: &str) -> Result<Status, Error> {
@@ -79,6 +84,35 @@ impl Web3StorageClient {
 
         Ok(status)
     }
+
+    pub fn get_uploader(&self, filename: String) -> uploader::Uploader {
+        uploader::Uploader::new(
+            self.token.clone(),
+            self.base_url.clone(),
+            filename,
+            uploader::UploadType::Car,
+            1,
+            Some(Arc::new(Mutex::new(|name, part, pos, total| {
+                log::debug!("name: {name} part:{part} {pos}/{total}");
+            }))),
+        )
+    }
+
+    pub fn get_car_writer(
+        &self,
+        filename: String,
+        uploader: uploader::Uploader,
+    ) -> car::Car<uploader::Uploader> {
+        car::Car::new(
+            1,
+            Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
+                &filename, None,
+            )])),
+            None,
+            None,
+            uploader,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -91,7 +125,7 @@ mod tests {
     async fn status_of_cid() {
         let mock_server = MockServer::start().await;
 
-        let web3storage_client = Web3StorageClient::new(mock_server.uri());
+        let web3storage_client = Web3StorageClient::new(mock_server.uri(), String::from(""));
 
         let status_response = r#"{"cid":"bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i","dagSize":380733,"created":"2023-10-27T20:08:24.015+00:00","pins":[{"status":"Pinned","updated":"2023-10-27T20:08:24.015+00:00","peerId":"bafzbeibhqavlasjc7dvbiopygwncnrtvjd2xmryk5laib7zyjor6kf3avm","peerName":"elastic-ipfs","region":null}],"deals":[{"dealId":60497440,"storageProvider":"f01392893","status":"Active","pieceCid":"baga6ea4seaqmjfxq45gotde77ay7sqljb7gt5gns3vojgwoj3fb3zmqvddkx2py","dataCid":"bafybeibbpkhnm5wdyw2y2zirndu2coa7mw67vg52hzsl3ogae4owajkd4q","dataModelSelector":"Links/4/Hash/Links/54/Hash/Links/0/Hash","activation":"2023-10-31T07:33:00+00:00","expiration":"2025-04-15T07:33:00+00:00","created":"2023-10-31T13:20:03.875131+00:00","updated":"2023-10-31T13:20:03.875131+00:00"}]}"#;
         let response = ResponseTemplate::new(200).set_body_string(status_response);

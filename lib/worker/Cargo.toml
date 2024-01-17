@@ -12,14 +12,18 @@ version = { workspace = true }
 [dependencies]
 anvil = { workspace = true }
 array-bytes = { workspace = true }
+async-trait = { workspace = true }
 backon = { workspace = true }
 base64 = { workspace = true }
 basin_common = { path = "../common" }
 basin_evm = { path = "../evm" }
 basin_protocol = { path = "../protocol" }
+blockless-car = { workspace = true }
+bytes = { workspace = true }
 capnp = { workspace = true }
 capnp-rpc = { workspace = true }
 chrono = { workspace = true }
+cid = { workspace = true }
 clap = { workspace = true }
 ethers = { workspace = true }
 futures = { workspace = true }
@@ -44,6 +48,7 @@ tiny-keccak = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 url = { workspace = true }
+w3s = { workspace = true }
 warp = { workspace = true }
 
 [dev-dependencies]

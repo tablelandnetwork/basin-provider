@@ -1,4 +1,5 @@
 use crate::gcs::GcsClient;
+use crate::web3storage::Web3StorageClient;
 
 use basin_evm::EVMClient;
 use sqlx::postgres::PgPool;
@@ -11,11 +12,13 @@ pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
     db_pool: PgPool,
     evm_client: E,
     gcs_client: GcsClient,
+    w3s_client: Web3StorageClient,
 ) -> (SocketAddr, impl Future<Output = ()>) {
-    warp::serve(api::routes(db_pool, evm_client, gcs_client)).bind_ephemeral(addr)
+    warp::serve(api::routes(db_pool, evm_client, gcs_client, w3s_client)).bind_ephemeral(addr)
 }
 
 mod api {
+    use crate::web3storage::{self, Web3StorageClient};
     use crate::{
         gcs::GcsClient,
         routes::{
@@ -32,11 +35,16 @@ mod api {
         db: PgPool,
         evm_client: E,
         gcs_client: GcsClient,
+        w3s_client: web3storage::Web3StorageClient,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         health()
             .or(vaults_list(evm_client.clone()))
             .or(vaults_create(evm_client, db.clone()))
-            .or(vaults_events_create(db.clone(), gcs_client.clone()))
+            .or(vaults_events_create(
+                db.clone(),
+                gcs_client.clone(),
+                w3s_client.clone(),
+            ))
             .or(vaults_events_list(db.clone()))
             .or(events_get(db, gcs_client))
     }
@@ -76,11 +84,13 @@ mod api {
     pub fn vaults_events_create(
         db: PgPool,
         gcs_client: GcsClient,
+        w3s_client: web3storage::Web3StorageClient,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("vaults" / String / "events")
             .and(warp::post())
             .and(warp::header::<u64>("content-length"))
             .and(with_gcs_client(gcs_client))
+            .and(with_w3s_client(w3s_client))
             .and(with_db(db))
             .and(warp::query::<WriteEventParams>())
             .and(warp::filters::body::stream())
@@ -120,6 +130,12 @@ mod api {
         gcs_client: GcsClient,
     ) -> impl Filter<Extract = (GcsClient,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || gcs_client.clone())
+    }
+
+    fn with_w3s_client(
+        w3s_client: Web3StorageClient,
+    ) -> impl Filter<Extract = (Web3StorageClient,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || w3s_client.clone())
     }
 
     fn with_evm_client<E: EVMClient + 'static + std::marker::Sync>(
