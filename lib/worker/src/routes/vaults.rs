@@ -84,7 +84,7 @@ pub async fn find_event_by_id(
         .download_streamed_object(
             &GetObjectRequest {
                 bucket: gcs_client.bucket.to_string(),
-                object: cache_path.unwrap().as_ref().to_string(),
+                object: cache_path.clone().unwrap().as_ref().to_string(),
                 ..Default::default()
             },
             &Range::default(),
@@ -104,10 +104,17 @@ pub async fn find_event_by_id(
     };
 
     let body = hyper::Body::wrap_stream(stream);
-    Ok(Box::new(with_status(
-        warp::reply::Response::new(body),
-        StatusCode::CREATED,
-    )))
+
+    let response = warp::reply::with_header(
+        with_status(warp::reply::Response::new(body), StatusCode::OK),
+        "content-disposition",
+        format!(
+            "attachment; filename=\"{}\"",
+            cache_path.unwrap().filename().unwrap()
+        ),
+    );
+
+    Ok(Box::new(response))
 }
 
 impl TryFrom<String> for Cid {
@@ -360,9 +367,11 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn write_event(
     path: String,
     size: u64,
+    filename: String,
     gcs_client: GcsClient,
     w3s_client: Web3StorageClient,
     pool: PgPool,
@@ -418,10 +427,11 @@ pub async fn write_event(
         };
 
     let filename = format!(
-        "{}/{}/{}.parquet",
+        "{}/{}/{}-{}",
         vault.namespace(),
         vault.relation(),
-        chrono::Utc::now().timestamp_micros()
+        chrono::Utc::now().timestamp_micros(),
+        filename
     );
     let upload_type = UploadType::Multipart(Box::new(Object {
         name: filename.to_string(),

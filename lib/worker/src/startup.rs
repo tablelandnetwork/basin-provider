@@ -89,6 +89,7 @@ mod api {
         warp::path!("vaults" / String / "events")
             .and(warp::post())
             .and(warp::header::<u64>("content-length"))
+            .and(warp::header::<String>("filename"))
             .and(with_gcs_client(gcs_client))
             .and(with_w3s_client(w3s_client))
             .and(with_db(db))

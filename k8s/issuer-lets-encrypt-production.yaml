@@ -17,3 +17,4 @@ spec:
    - http01:
        ingress:
         class: nginx
+        name: ingress-nginx
