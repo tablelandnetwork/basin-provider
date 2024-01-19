@@ -5,6 +5,10 @@ impl CachePath {
     pub fn from(s: String) -> CachePath {
         CachePath(s)
     }
+
+    pub fn filename(&self) -> Option<String> {
+        self.0.split('/').last().map(|x| x.to_string())
+    }
 }
 
 impl AsRef<str> for CachePath {

@@ -240,6 +240,7 @@ impl TestApp {
                 timestamp,
                 hex::encode(sigb)
             ))
+            .header("filename", "sample.bin")
             .body(event_content.to_vec())
             .send()
             .await

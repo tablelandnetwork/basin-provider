@@ -74,17 +74,20 @@ pub async fn find_event_by_id(
         }
     };
 
-    if cache_path.is_none() {
-        let empty: Vec<u8> = Vec::new();
-        return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
-    }
+    let cache_path = match cache_path {
+        Some(path) => path,
+        None => {
+            let empty: Vec<u8> = Vec::new();
+            return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
+        }
+    };
 
     let stream = match gcs_client
         .inner
         .download_streamed_object(
             &GetObjectRequest {
                 bucket: gcs_client.bucket.to_string(),
-                object: cache_path.unwrap().as_ref().to_string(),
+                object: cache_path.clone().as_ref().to_string(),
                 ..Default::default()
             },
             &Range::default(),
@@ -104,10 +107,17 @@ pub async fn find_event_by_id(
     };
 
     let body = hyper::Body::wrap_stream(stream);
-    Ok(Box::new(with_status(
-        warp::reply::Response::new(body),
-        StatusCode::CREATED,
-    )))
+
+    let response = warp::reply::with_header(
+        with_status(warp::reply::Response::new(body), StatusCode::OK),
+        "content-disposition",
+        format!(
+            "attachment; filename=\"{}\"",
+            cache_path.filename().unwrap()
+        ),
+    );
+
+    Ok(Box::new(response))
 }
 
 impl TryFrom<String> for Cid {
@@ -360,9 +370,11 @@ pub struct CreateVaultResponse {
     created: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn write_event(
     path: String,
     size: u64,
+    filename: String,
     gcs_client: GcsClient,
     w3s_client: Web3StorageClient,
     pool: PgPool,
@@ -418,10 +430,11 @@ pub async fn write_event(
         };
 
     let filename = format!(
-        "{}/{}/{}.parquet",
+        "{}/{}/{}-{}",
         vault.namespace(),
         vault.relation(),
-        chrono::Utc::now().timestamp_micros()
+        chrono::Utc::now().timestamp_micros(),
+        filename
     );
     let upload_type = UploadType::Multipart(Box::new(Object {
         name: filename.to_string(),
