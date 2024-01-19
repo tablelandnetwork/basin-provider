@@ -74,17 +74,20 @@ pub async fn find_event_by_id(
         }
     };
 
-    if cache_path.is_none() {
-        let empty: Vec<u8> = Vec::new();
-        return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
-    }
+    let cache_path = match cache_path {
+        Some(path) => path,
+        None => {
+            let empty: Vec<u8> = Vec::new();
+            return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
+        }
+    };
 
     let stream = match gcs_client
         .inner
         .download_streamed_object(
             &GetObjectRequest {
                 bucket: gcs_client.bucket.to_string(),
-                object: cache_path.clone().unwrap().as_ref().to_string(),
+                object: cache_path.clone().as_ref().to_string(),
                 ..Default::default()
             },
             &Range::default(),
@@ -110,7 +113,7 @@ pub async fn find_event_by_id(
         "content-disposition",
         format!(
             "attachment; filename=\"{}\"",
-            cache_path.unwrap().filename().unwrap()
+            cache_path.filename().unwrap()
         ),
     );
 
