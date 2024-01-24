@@ -1,7 +1,7 @@
 use crate::helpers::spawn_app;
 use basin_evm::EVMClient;
 use ethers::{
-    core::rand::{thread_rng, Rng},
+    core::rand::{distributions::Uniform, thread_rng, Rng},
     signers::Signer,
 };
 
@@ -229,8 +229,8 @@ async fn write_event() {
     app.create_vault_with_cache("api.test", 10).await;
 
     // creating random event
-    let mut event_content = [0u8; 256];
-    thread_rng().fill(&mut event_content);
+    let range = Uniform::from(0..20);
+    let event_content = thread_rng().sample_iter(&range).take(100).collect();
 
     let response = app
         .upload_event("api.test", 1701372646, event_content)

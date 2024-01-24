@@ -1,18 +1,12 @@
-use std::io::Cursor;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use crate::crypto;
 use crate::db;
 use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
 use crate::web3storage::Web3StorageClient;
+use std::str::FromStr;
 
 use basin_evm::EVMClient;
-use blockless_car::reader::new_v1;
-use blockless_car::reader::CarReader;
 use chrono::DateTime;
 
 use ethers::types::Address;
@@ -28,8 +22,9 @@ use google_cloud_storage::http::resumable_upload_client::ResumableUploadClient;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
-use w3s::writer::car;
 
+use cid::Cid as RustCid;
+use multihash::Multihash;
 use std::borrow::BorrowMut;
 use std::convert::Infallible;
 use std::io::Write;
@@ -697,41 +692,17 @@ async fn upload_w3s_mock(
         .await
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
-    // replace "/" with "_" in filename to avoid messing up ipfs path
-    let _w3s_filename = filename.replace('/', "_");
-
-    let mut buffer = Vec::new();
-    //let mut writer = Cursor::new(&mut buffer);
-    // Create a new Car writer
-    let mut w3s_car = car::Car::new(
-        1,
-        Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
-            filename, None,
-        )])),
-        None,
-        None,
-        &mut buffer,
-    );
-
+    let mut hasher = Keccak::v256();
     while let Some(Ok(data)) = download_stream.next().await {
-        w3s_car
-            .write_all(data.as_ref())
-            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+        hasher.update(data.as_ref());
     }
 
-    w3s_car
-        .flush()
-        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+    let mut output = [0u8; 32];
+    hasher.finalize(&mut output);
 
-    let mut reader = Cursor::new(&buffer);
-    let car_reader = new_v1(&mut reader).unwrap();
-
-    let roots = car_reader.header().roots();
-    let result_root_cid = roots.last().ok_or(basin_common::errors::Error::Upload(
-        "w3s upload failed: no cids returned".to_string(),
-    ))?;
-    let cid = result_root_cid.to_owned();
-    log::info!("uploaded file to w3s: {:?}", cid);
+    let digest = Multihash::<64>::wrap(0x12, &output).unwrap();
+    let cid = RustCid::new_v1(0x70, digest);
+    log::info!("uploaded file: {:?}", cid);
 
     Ok(cid.to_bytes())
 }

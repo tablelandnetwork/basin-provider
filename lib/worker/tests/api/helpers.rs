@@ -215,11 +215,11 @@ impl TestApp {
         &self,
         vault: &str,
         timestamp: i64,
-        event_content: [u8; 256],
+        event_content: Vec<u8>,
     ) -> Response {
         // calculating hash
         let mut hasher = Keccak::v256();
-        hasher.update(&event_content[..256]);
+        hasher.update(&event_content[..]);
         let mut output = [0u8; 32];
         hasher.finalize(&mut output);
 
