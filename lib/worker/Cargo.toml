@@ -34,6 +34,7 @@ hex = { workspace = true }
 hyper = { workspace = true }
 log = { workspace = true }
 multibase = { workspace = true }
+multihash = { workspace = true }
 once_cell = { workspace = true }
 openssl = { workspace = true }
 regex = { workspace = true }

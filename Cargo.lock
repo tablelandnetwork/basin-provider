@@ -410,6 +410,7 @@ dependencies = [
  "jemallocator",
  "log",
  "multibase",
+ "multihash 0.19.1",
  "once_cell",
  "openssl",
  "regex",
