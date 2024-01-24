@@ -700,8 +700,11 @@ async fn upload_w3s_mock(
     let mut output = [0u8; 32];
     hasher.finalize(&mut output);
 
-    let digest = Multihash::<64>::wrap(0x12, &output).unwrap();
-    let cid = RustCid::new_v1(0x70, digest);
+    const SHA2_256: u64 = 0x12;
+    let digest = Multihash::<64>::wrap(SHA2_256, &output).unwrap();
+
+    const DAG_PB: u64 = 0x70;
+    let cid = RustCid::new_v1(DAG_PB, digest);
     log::info!("uploaded file: {:?}", cid);
 
     Ok(cid.to_bytes())
