@@ -45,7 +45,7 @@ spec:
             "--evm-chain-id", "$(EVM_CHAIN_ID)",
             "--bind-address", "$(BIND_ADDRESS)",
             "--bind-health-address", "$(BIND_HEALTH_ADDRESS)",
-            "--w3s-token", "$(W3S_TOKEN)",
+            "--basin-w3s-endpoint", "$(BASIN_W3S_ENDPOINT)",
             "-vvvvv"
           ]
           env:

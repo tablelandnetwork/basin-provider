@@ -2,7 +2,7 @@ use basin_common::db;
 use basin_evm::{testing::MockClient, BasinClient};
 use basin_worker::gcs::GcsClient;
 use basin_worker::rpc;
-use basin_worker::web3storage::{Web3StorageClient, DEFAULT_BASE_URL};
+use basin_worker::web3storage::Web3StorageClient;
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{
@@ -64,7 +64,7 @@ struct Cli {
 
     /// Web3Storage API token
     #[arg(long, env)]
-    w3s_token: String,
+    basin_w3s_endpoint: String,
 
     /// Host and port to bind the RPC API to
     #[arg(long, env, default_value = "127.0.0.1:3000")]
@@ -122,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.export_endpoint,
     )
     .await?;
-    let web3store_client = Web3StorageClient::new(DEFAULT_BASE_URL.to_string(), args.w3s_token);
+    let web3store_client = Web3StorageClient::new(args.basin_w3s_endpoint);
 
     let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
 

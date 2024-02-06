@@ -22,14 +22,9 @@ use google_cloud_storage::http::resumable_upload_client::ResumableUploadClient;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlx::PgPool;
-
-use cid::Cid as RustCid;
-use multihash::Multihash;
 use std::borrow::BorrowMut;
 use std::convert::Infallible;
-use std::io::Write;
 use tiny_keccak::{Hasher, Keccak};
-use w3s::writer::ChainWrite;
 use warp::http::StatusCode;
 use warp::reply::{json, with_status};
 use warp::Stream;
@@ -634,13 +629,12 @@ async fn upload_stream(
     Ok(output)
 }
 
-#[allow(dead_code)]
-async fn upload_w3s(
+async fn upload_w3s_mock(
     gcs_client: GcsClient,
     w3s_client: Web3StorageClient,
     filename: &str,
 ) -> basin_common::errors::Result<Vec<u8>> {
-    let mut download_stream = gcs_client
+    let download_stream = gcs_client
         .inner
         .download_streamed_object(
             &GetObjectRequest {
@@ -653,72 +647,14 @@ async fn upload_w3s(
         .await
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
-    // replace "/" with "_" in filename to avoid messing up ipfs path
-    let w3s_filename = filename.replace('/', "_");
-    // Create W3S uploader
-    let uploader = w3s_client.get_uploader(w3s_filename.clone());
-    // Create a new Car writer
-    let mut w3s_car = w3s_client.get_car_writer(w3s_filename, uploader);
-
-    while let Some(Ok(data)) = download_stream.next().await {
-        w3s_car
-            .write_all(data.as_ref())
-            .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
-    }
-
-    w3s_car
-        .flush()
-        .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
-    let mut next_uploader = w3s_car.next();
-
-    let result_cids = next_uploader
-        .finish_results()
+    let res = w3s_client
+        .upload(download_stream, filename)
         .await
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
 
-    let result_root_cid = result_cids
-        .last()
-        .ok_or(basin_common::errors::Error::Upload(
-            "w3s upload failed: no cids returned".to_string(),
-        ))?;
-    let cid = result_root_cid.to_owned();
-    log::info!("uploaded file to w3s: {:?}", cid);
-
-    Ok(cid.to_bytes())
-}
-
-async fn upload_w3s_mock(
-    gcs_client: GcsClient,
-    _w3s_client: Web3StorageClient,
-    filename: &str,
-) -> basin_common::errors::Result<Vec<u8>> {
-    let mut download_stream = gcs_client
-        .inner
-        .download_streamed_object(
-            &GetObjectRequest {
-                bucket: gcs_client.bucket.clone(),
-                object: filename.to_string(),
-                ..Default::default()
-            },
-            &Range::default(),
-        )
-        .await
+    let cid = Cid::from(res.root.clone())
         .map_err(|e| basin_common::errors::Error::Upload(e.to_string()))?;
+    log::info!("uploaded file: {:?}", res.root);
 
-    let mut hasher = Keccak::v256();
-    while let Some(Ok(data)) = download_stream.next().await {
-        hasher.update(data.as_ref());
-    }
-
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
-
-    const SHA2_256: u64 = 0x12;
-    let digest = Multihash::<64>::wrap(SHA2_256, &output).unwrap();
-
-    const DAG_PB: u64 = 0x70;
-    let cid = RustCid::new_v1(DAG_PB, digest);
-    log::info!("uploaded file: {:?}", cid);
-
-    Ok(cid.to_bytes())
+    Ok(cid.as_bytes())
 }

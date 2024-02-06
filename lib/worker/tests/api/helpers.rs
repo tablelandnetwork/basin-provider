@@ -69,9 +69,9 @@ pub async fn spawn_app() -> TestApp {
     let evm_client = MockClient::new().await.unwrap();
 
     // Web3Storage client will send requests to the mock server
-    let token = String::from("");
+    let _token = String::from("");
     let w3s_mock_server_host = "http://127.0.0.1:33333".to_string();
-    let w3s_client = Web3StorageClient::new(w3s_mock_server_host, token);
+    let w3s_client = Web3StorageClient::new(w3s_mock_server_host);
     tokio::spawn(async {
         let echo_route = warp::post()
             .and(warp::path("car"))
