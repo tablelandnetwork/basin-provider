@@ -7,18 +7,18 @@ use std::net::SocketAddr;
 
 use warp::Future;
 
-pub fn start_http_server<E: EVMClient + 'static + std::marker::Sync>(
+pub fn start_http_server<E: EVMClient + 'static + Sync, W: Web3StorageClient + 'static + Sync>(
     addr: SocketAddr,
     db_pool: PgPool,
     evm_client: E,
     gcs_client: GcsClient,
-    w3s_client: Web3StorageClient,
+    w3s_client: W,
 ) -> (SocketAddr, impl Future<Output = ()>) {
     warp::serve(api::routes(db_pool, evm_client, gcs_client, w3s_client)).bind_ephemeral(addr)
 }
 
 mod api {
-    use crate::web3storage::{self, Web3StorageClient};
+    use crate::web3storage::Web3StorageClient;
     use crate::{
         gcs::GcsClient,
         routes::{
@@ -31,11 +31,11 @@ mod api {
     use warp::Filter;
 
     // all routes
-    pub fn routes<E: EVMClient + 'static + std::marker::Sync>(
+    pub fn routes<E: EVMClient + 'static + std::marker::Sync, W: Web3StorageClient>(
         db: PgPool,
         evm_client: E,
         gcs_client: GcsClient,
-        w3s_client: web3storage::Web3StorageClient,
+        w3s_client: W,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         health()
             .or(vaults_list(evm_client.clone()))
@@ -81,10 +81,10 @@ mod api {
     }
 
     // POST /vaults/:id/events
-    pub fn vaults_events_create(
+    pub fn vaults_events_create<W: Web3StorageClient>(
         db: PgPool,
         gcs_client: GcsClient,
-        w3s_client: web3storage::Web3StorageClient,
+        w3s_client: W,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("vaults" / String / "events")
             .and(warp::post())
@@ -133,9 +133,9 @@ mod api {
         warp::any().map(move || gcs_client.clone())
     }
 
-    fn with_w3s_client(
-        w3s_client: Web3StorageClient,
-    ) -> impl Filter<Extract = (Web3StorageClient,), Error = std::convert::Infallible> + Clone {
+    fn with_w3s_client<W: Web3StorageClient>(
+        w3s_client: W,
+    ) -> impl Filter<Extract = (W,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || w3s_client.clone())
     }
 

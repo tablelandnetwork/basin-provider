@@ -1,8 +1,7 @@
 use basin_common::db;
-use basin_evm::{testing::MockClient, BasinClient};
+use basin_evm::BasinClient;
 use basin_worker::gcs::GcsClient;
-use basin_worker::rpc;
-use basin_worker::web3storage::Web3StorageClient;
+use basin_worker::web3storage::Web3StorageImpl;
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{
@@ -66,13 +65,9 @@ struct Cli {
     #[arg(long, env)]
     basin_w3s_endpoint: String,
 
-    /// Host and port to bind the RPC API to
-    #[arg(long, env, default_value = "127.0.0.1:3000")]
-    bind_address: SocketAddr,
-
     /// Host and port to bind the Health API to
     #[arg(long, env, default_value = "127.0.0.1:8080")]
-    bind_health_address: SocketAddr,
+    bind_address: SocketAddr,
 
     /// Logging verbosity (repeat for more verbose logging)
     #[arg(short, long, env, action = clap::ArgAction::Count)]
@@ -122,25 +117,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.export_endpoint,
     )
     .await?;
-    let web3store_client = Web3StorageClient::new(args.basin_w3s_endpoint);
+    let web3store_client = Web3StorageImpl::new(args.basin_w3s_endpoint);
 
-    let listener = tokio::net::TcpListener::bind(&args.bind_address).await?;
+    let mut cmd = Cli::command();
 
-    match args.evm_type {
-        EvmType::Mem => {
-            rpc::listen(
-                MockClient::new().await?,
-                pg_pool,
-                gcs_client,
-                web3store_client,
-                listener,
-            )
-            .await
-        }
-        EvmType::Remote => {
-            let mut cmd = Cli::command();
-
-            let wallet_pk = match args.evm_wallet_pk {
+    let wallet_pk = match args.evm_wallet_pk {
                 Some(s) => s.replace("0x", ""),
                 None => cmd
                     .error(
@@ -149,26 +130,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .exit(),
             };
-            let wallet_pk = match hex::decode(wallet_pk) {
-                Ok(v) => v,
-                Err(_) => cmd
-                    .error(
-                        ErrorKind::ValueValidation,
-                        "invalid hex value for --evm-wallet-pk <EVM_WALLET_PK>",
-                    )
-                    .exit(),
-            };
-            let wallet = match LocalWallet::from_bytes(wallet_pk.as_slice()) {
-                Ok(w) => w,
-                Err(_) => cmd
-                    .error(
-                        ErrorKind::ValueValidation,
-                        "invalid key value for --evm-wallet-pk <EVM_WALLET_PK>",
-                    )
-                    .exit(),
-            };
+    let wallet_pk = match hex::decode(wallet_pk) {
+        Ok(v) => v,
+        Err(_) => cmd
+            .error(
+                ErrorKind::ValueValidation,
+                "invalid hex value for --evm-wallet-pk <EVM_WALLET_PK>",
+            )
+            .exit(),
+    };
+    let wallet = match LocalWallet::from_bytes(wallet_pk.as_slice()) {
+        Ok(w) => w,
+        Err(_) => cmd
+            .error(
+                ErrorKind::ValueValidation,
+                "invalid key value for --evm-wallet-pk <EVM_WALLET_PK>",
+            )
+            .exit(),
+    };
 
-            let contract_address = match args.evm_contract_address {
+    let contract_address = match args.evm_contract_address {
                 Some(s) => s.replace("0x", ""),
                 None => cmd
                     .error(
@@ -177,47 +158,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .exit(),
             };
-            let contract_address = match hex::decode(contract_address) {
-                Ok(v) => v,
-                Err(_) => cmd
-                    .error(
-                        ErrorKind::ValueValidation,
-                        "invalid hex value for --evm-contract-address <EVM_CONTRACT_ADDRESS>",
-                    )
-                    .exit(),
-            };
-
-            let chain_id = match Chain::try_from(args.evm_chain_id) {
-                Ok(c) => c,
-                Err(_) => cmd
-                    .error(
-                        ErrorKind::ValueValidation,
-                        "invalid chain ID value for --evm-chain-id <EVM_CHAIN_ID>",
-                    )
-                    .exit(),
-            };
-
-            let evm_client = BasinClient::new(
-                wallet,
-                Address::from_slice(contract_address.as_slice()),
-                args.evm_provider_url.as_str(),
-                chain_id,
+    let contract_address = match hex::decode(contract_address) {
+        Ok(v) => v,
+        Err(_) => cmd
+            .error(
+                ErrorKind::ValueValidation,
+                "invalid hex value for --evm-contract-address <EVM_CONTRACT_ADDRESS>",
             )
-            .await?;
+            .exit(),
+    };
 
-            //let tcp_listener = TcpListener::bind(args.bind_health_address)?;
-            let p = pool.clone();
-            let c = evm_client.clone();
-            let gcs = gcs_client.clone();
-            let w3s = web3store_client.clone();
-            tokio::spawn(async move {
-                info!("HTTP API started");
-                let (_, server) =
-                    startup::start_http_server(args.bind_health_address, p, c, gcs, w3s);
-                server.await;
-            });
+    let chain_id = match Chain::try_from(args.evm_chain_id) {
+        Ok(c) => c,
+        Err(_) => cmd
+            .error(
+                ErrorKind::ValueValidation,
+                "invalid chain ID value for --evm-chain-id <EVM_CHAIN_ID>",
+            )
+            .exit(),
+    };
 
-            rpc::listen(evm_client, pg_pool, gcs_client, web3store_client, listener).await
-        }
-    }
+    let evm_client = BasinClient::new(
+        wallet,
+        Address::from_slice(contract_address.as_slice()),
+        args.evm_provider_url.as_str(),
+        chain_id,
+    )
+    .await?;
+
+    info!("HTTP API started");
+    let (_, server) = startup::start_http_server(
+        args.bind_address,
+        pool,
+        evm_client,
+        gcs_client,
+        web3store_client,
+    );
+    server.await;
+
+    Ok(())
 }

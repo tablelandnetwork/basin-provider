@@ -361,12 +361,12 @@ pub struct CreateVaultResponse {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn write_event(
+pub async fn write_event<W: Web3StorageClient>(
     path: String,
     size: u64,
     filename: String,
     gcs_client: GcsClient,
-    w3s_client: Web3StorageClient,
+    w3s_client: W,
     pool: PgPool,
     params: WriteEventParams,
     mut stream: impl Stream<Item = Result<impl warp::Buf, warp::Error>> + Unpin + Send + Sync,
@@ -530,7 +530,7 @@ pub async fn write_event(
         }
     }
 
-    let cid_bytes = match upload_w3s_mock(gcs_client, w3s_client, &filename).await {
+    let cid_bytes = match upload_w3s(gcs_client, w3s_client, &filename).await {
         Ok(cid) => cid,
         Err(err) => {
             log::error!("{}", err);
@@ -629,9 +629,9 @@ async fn upload_stream(
     Ok(output)
 }
 
-async fn upload_w3s_mock(
+async fn upload_w3s<W: Web3StorageClient>(
     gcs_client: GcsClient,
-    w3s_client: Web3StorageClient,
+    w3s_client: W,
     filename: &str,
 ) -> basin_common::errors::Result<Vec<u8>> {
     let download_stream = gcs_client

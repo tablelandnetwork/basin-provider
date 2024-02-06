@@ -3,7 +3,6 @@ pub mod db;
 pub mod domain;
 pub mod gcs;
 pub mod routes;
-pub mod rpc;
 pub mod startup;
 pub mod utils;
 pub mod web3storage;
