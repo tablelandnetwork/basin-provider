@@ -24,7 +24,7 @@ pub enum Error {
 }
 
 #[async_trait]
-pub trait Web3StorageClient: Clone + Send {
+pub trait Web3Storage: Clone + Send {
     async fn upload(
         &self,
         stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>
@@ -36,18 +36,18 @@ pub trait Web3StorageClient: Clone + Send {
 }
 
 #[derive(Clone)]
-pub struct Web3StorageImpl {
+pub struct Web3StorageClient {
     base_url: String,
 }
 
-impl Web3StorageImpl {
+impl Web3StorageClient {
     pub fn new(base_url: String) -> Self {
         Self { base_url }
     }
 }
 
 #[async_trait]
-impl Web3StorageClient for Web3StorageImpl {
+impl Web3Storage for Web3StorageClient {
     async fn upload(
         &self,
         stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>
@@ -81,7 +81,7 @@ impl Web3StorageClient for Web3StorageImpl {
 pub struct Web3StorageMock {}
 
 #[async_trait]
-impl Web3StorageClient for Web3StorageMock {
+impl Web3Storage for Web3StorageMock {
     async fn upload(
         &self,
         _stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>

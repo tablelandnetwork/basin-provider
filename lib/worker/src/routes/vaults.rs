@@ -3,7 +3,7 @@ use crate::db;
 use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
-use crate::web3storage::Web3StorageClient;
+use crate::web3storage::Web3Storage;
 use std::str::FromStr;
 
 use basin_evm::EVMClient;
@@ -361,7 +361,7 @@ pub struct CreateVaultResponse {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn write_event<W: Web3StorageClient>(
+pub async fn write_event<W: Web3Storage>(
     path: String,
     size: u64,
     filename: String,
@@ -530,7 +530,16 @@ pub async fn write_event<W: Web3StorageClient>(
         }
     }
 
-    let cid_bytes = match upload_w3s(gcs_client, w3s_client, &filename).await {
+    let mut retries = 0;
+    let cid_bytes = match loop {
+        let result = upload_w3s(gcs_client.clone(), w3s_client.clone(), &filename).await;
+        if result.is_ok() || retries > 3 {
+            break result;
+        } else {
+            retries += 1;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    } {
         Ok(cid) => cid,
         Err(err) => {
             log::error!("{}", err);
@@ -629,7 +638,7 @@ async fn upload_stream(
     Ok(output)
 }
 
-async fn upload_w3s<W: Web3StorageClient>(
+async fn upload_w3s<W: Web3Storage>(
     gcs_client: GcsClient,
     w3s_client: W,
     filename: &str,

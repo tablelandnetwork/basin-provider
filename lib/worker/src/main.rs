@@ -1,7 +1,7 @@
 use basin_common::db;
 use basin_evm::BasinClient;
 use basin_worker::gcs::GcsClient;
-use basin_worker::web3storage::Web3StorageImpl;
+use basin_worker::web3storage::Web3StorageClient;
 use clap::error::ErrorKind;
 use clap::{arg, CommandFactory, Parser, ValueEnum};
 use ethers::{
@@ -117,10 +117,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.export_endpoint,
     )
     .await?;
-    let web3store_client = Web3StorageImpl::new(args.basin_w3s_endpoint);
 
+    let web3store_client = Web3StorageClient::new(args.basin_w3s_endpoint);
     let mut cmd = Cli::command();
-
     let wallet_pk = match args.evm_wallet_pk {
                 Some(s) => s.replace("0x", ""),
                 None => cmd

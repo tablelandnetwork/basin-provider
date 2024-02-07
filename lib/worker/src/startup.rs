@@ -1,5 +1,5 @@
 use crate::gcs::GcsClient;
-use crate::web3storage::Web3StorageClient;
+use crate::web3storage::Web3Storage;
 
 use basin_evm::EVMClient;
 use sqlx::postgres::PgPool;
@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 
 use warp::Future;
 
-pub fn start_http_server<E: EVMClient + 'static + Sync, W: Web3StorageClient + 'static + Sync>(
+pub fn start_http_server<E: EVMClient + 'static + Sync, W: Web3Storage + 'static + Sync>(
     addr: SocketAddr,
     db_pool: PgPool,
     evm_client: E,
@@ -18,7 +18,7 @@ pub fn start_http_server<E: EVMClient + 'static + Sync, W: Web3StorageClient + '
 }
 
 mod api {
-    use crate::web3storage::Web3StorageClient;
+    use crate::web3storage::Web3Storage;
     use crate::{
         gcs::GcsClient,
         routes::{
@@ -31,7 +31,7 @@ mod api {
     use warp::Filter;
 
     // all routes
-    pub fn routes<E: EVMClient + 'static + std::marker::Sync, W: Web3StorageClient>(
+    pub fn routes<E: EVMClient + 'static + std::marker::Sync, W: Web3Storage>(
         db: PgPool,
         evm_client: E,
         gcs_client: GcsClient,
@@ -81,7 +81,7 @@ mod api {
     }
 
     // POST /vaults/:id/events
-    pub fn vaults_events_create<W: Web3StorageClient>(
+    pub fn vaults_events_create<W: Web3Storage>(
         db: PgPool,
         gcs_client: GcsClient,
         w3s_client: W,
@@ -133,7 +133,7 @@ mod api {
         warp::any().map(move || gcs_client.clone())
     }
 
-    fn with_w3s_client<W: Web3StorageClient>(
+    fn with_w3s_client<W: Web3Storage>(
         w3s_client: W,
     ) -> impl Filter<Extract = (W,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || w3s_client.clone())
