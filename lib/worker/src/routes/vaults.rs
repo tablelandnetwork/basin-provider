@@ -4,6 +4,7 @@ use crate::domain::Cid;
 use crate::domain::Vault;
 use crate::gcs::GcsClient;
 use crate::web3storage::Web3Storage;
+use hex::ToHex;
 use std::str::FromStr;
 
 use basin_evm::EVMClient;
@@ -495,6 +496,8 @@ pub async fn write_event<W: Web3Storage>(
         }
     };
 
+    log::info!("content hash, hash={}", hash_output.encode_hex::<String>());
+
     let owner = match crypto::recover(&hash_output, &signature[..64], signature[64] as i32) {
         Ok(owner) => owner,
         Err(err) => {
@@ -507,6 +510,12 @@ pub async fn write_event<W: Web3Storage>(
             ));
         }
     };
+
+    log::info!(
+        "checking ownership, vault={} owner={}",
+        &vault.namespace(),
+        owner.encode_hex::<String>()
+    );
 
     match db::is_namespace_owner(&pool, &vault.namespace(), owner).await {
         Ok(is_owner) => {
