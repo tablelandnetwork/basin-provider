@@ -384,6 +384,8 @@ pub async fn write_event<W: Web3Storage>(
         }
     };
 
+    log::info!("size = {}", size);
+
     match db::namespace_exists(&pool, &vault.namespace()).await {
         Ok(exists) => {
             if !exists {
@@ -539,16 +541,7 @@ pub async fn write_event<W: Web3Storage>(
         }
     }
 
-    let mut retries = 0;
-    let cid_bytes = match loop {
-        let result = upload_w3s(gcs_client.clone(), w3s_client.clone(), &filename).await;
-        if result.is_ok() || retries > 3 {
-            break result;
-        } else {
-            retries += 1;
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        }
-    } {
+    let cid_bytes = match upload_w3s(gcs_client.clone(), w3s_client.clone(), &filename).await {
         Ok(cid) => cid,
         Err(err) => {
             log::error!("{}", err);
@@ -605,6 +598,8 @@ async fn upload_stream(
     let mut collected: Vec<u8> = Vec::new();
     loop {
         let first_byte = received;
+
+        // first we try to collect as much bytes as possible until CHUNK_SIZE
         while let Some(buf) = stream.next().await {
             let mut buf = buf.unwrap();
             while buf.remaining() > 0 {
@@ -617,6 +612,11 @@ async fn upload_stream(
             if collected.len() >= CHUNK_SIZE {
                 break;
             }
+        }
+
+        // if we couldn't collect any more bytes to upload to GCS, then break out of the loop
+        if collected.is_empty() {
+            break;
         }
 
         let payload = collected
@@ -635,11 +635,9 @@ async fn upload_stream(
 
         hasher.update(&payload);
         collected.drain(0..std::cmp::min(CHUNK_SIZE, collected.len()));
-
-        if collected.is_empty() {
-            break;
-        }
     }
+
+    log::info!("received = {}", received);
 
     let mut output = [0u8; 32];
     hasher.finalize(&mut output);
