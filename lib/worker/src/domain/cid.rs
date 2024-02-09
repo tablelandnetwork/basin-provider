@@ -12,6 +12,10 @@ impl Cid {
 
         Ok(Cid(cid))
     }
+
+    pub fn as_bytes(self) -> Vec<u8> {
+        self.0
+    }
 }
 
 impl AsRef<Vec<u8>> for Cid {

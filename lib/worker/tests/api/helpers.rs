@@ -1,9 +1,10 @@
 use basin_common::db;
 use basin_common::errors::Result;
 use basin_evm::testing::MockClient;
-use basin_worker::gcs::GcsClient;
 use basin_worker::routes::CreateVaultInput;
-use basin_worker::web3storage::Web3StorageClient;
+
+use basin_worker::gcs::GcsClient;
+use basin_worker::web3storage::Web3StorageMock;
 use chrono::NaiveDateTime;
 use ethers::{
     core::{
@@ -20,21 +21,12 @@ use reqwest::Response;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::convert::Infallible;
 use std::net::SocketAddr;
 use tiny_keccak::{Hasher, Keccak};
-use warp::Buf;
-use warp::{Filter, Reply};
 
 #[derive(Deserialize, Serialize, Debug)]
 struct W3SResponse {
     cid: String,
-}
-
-// Mock Web3Storage handler returns a hardcoded CID
-async fn w3s_mock_handler(_input: impl Buf) -> Result<impl Reply, Infallible> {
-    let cid = "bafybeifauyd7ygwre6wf6nv7iqox4yw72zmaydadlpqer667wdeqxssufe".to_string();
-    Ok(warp::reply::json(&W3SResponse { cid }))
 }
 
 pub async fn spawn_app() -> TestApp {
@@ -68,17 +60,7 @@ pub async fn spawn_app() -> TestApp {
 
     let evm_client = MockClient::new().await.unwrap();
 
-    // Web3Storage client will send requests to the mock server
-    let token = String::from("");
-    let w3s_mock_server_host = "http://127.0.0.1:33333".to_string();
-    let w3s_client = Web3StorageClient::new(w3s_mock_server_host, token);
-    tokio::spawn(async {
-        let echo_route = warp::post()
-            .and(warp::path("car"))
-            .and(warp::body::bytes())
-            .and_then(w3s_mock_handler);
-        warp::serve(echo_route).run(([127, 0, 0, 1], 33333)).await;
-    });
+    let w3s_client = Web3StorageMock {};
 
     let (addr, server) = basin_worker::startup::start_http_server(
         addr,

@@ -1,52 +1,18 @@
-use reqwest::Client;
+use bytes::Bytes;
+
+use async_trait::async_trait;
+use cid::Cid;
+use futures::StreamExt;
+use multihash_codetable::{Code, MultihashDigest};
+use reqwest::{multipart, Body, Client};
 use serde::Deserialize;
-use std::sync::Arc;
-use std::sync::Mutex;
+
 use thiserror::Error;
-use w3s::writer::car;
-use w3s::writer::uploader;
 
-#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
-pub struct Status {
-    pub created: String,
-    pub cid: String,
-    #[serde(rename = "dagSize")]
-    pub dag_size: u32,
-    pins: Vec<Pin>,
-    pub deals: Vec<Deal>,
-}
-
-#[allow(dead_code)]
-#[derive(Deserialize, Debug)]
-pub struct Pin {
-    status: String,
-    updated: String,
-    #[serde(rename = "peerId")]
-    peer_id: String,
-    #[serde(rename = "peerName")]
-    peer_name: String,
-    region: Option<String>,
-}
-
-#[allow(dead_code)]
-#[derive(Deserialize, Debug)]
-pub struct Deal {
-    #[serde(rename = "dealId")]
-    deal_id: Option<u32>,
-    #[serde(rename = "storageProvider")]
-    storage_provider: Option<String>,
-    status: String,
-    #[serde(rename = "pieceCid")]
-    piece_cid: String,
-    #[serde(rename = "dataCid")]
-    data_cid: String,
-    #[serde(rename = "dataModelSelector")]
-    data_model_selector: String,
-    activation: Option<String>,
-    expiration: Option<String>,
-    created: Option<String>,
-    updated: Option<String>,
+pub struct UploadResponse {
+    pub root: String,
+    pub shard: String,
 }
 
 #[derive(Error, Debug)]
@@ -57,144 +23,80 @@ pub enum Error {
     SerdeJSONError(#[source] serde_json::Error, String),
 }
 
-pub const DEFAULT_BASE_URL: &str = "https://api.web3.storage";
+#[async_trait]
+pub trait Web3Storage: Clone + Send {
+    async fn upload(
+        &self,
+        stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>
+            + Sync
+            + Send
+            + 'static,
+        filename: &str,
+    ) -> Result<UploadResponse, Error>;
+}
 
 #[derive(Clone)]
 pub struct Web3StorageClient {
     base_url: String,
-    token: String,
 }
 
 impl Web3StorageClient {
-    pub fn new(base_url: String, token: String) -> Self {
-        Self { base_url, token }
+    pub fn new(base_url: String) -> Self {
+        Self { base_url }
     }
+}
 
-    pub async fn status_of_cid(&self, cid: &str) -> Result<Status, Error> {
+#[async_trait]
+impl Web3Storage for Web3StorageClient {
+    async fn upload(
+        &self,
+        stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>
+            + Sync
+            + Send
+            + 'static,
+        filename: &str,
+    ) -> Result<UploadResponse, Error> {
+        let file = multipart::Part::stream(Body::wrap_stream(stream))
+            .file_name(filename.to_string())
+            .mime_str("application/octet-stream")?;
+
+        let form = multipart::Form::new().part("file", file);
+
         let result = Client::new()
-            .get(format!("{}/status/{}", self.base_url, cid))
-            .header("accept", "application/json")
+            .post(format!("http://{}/api/v1/upload", self.base_url))
+            .multipart(form)
             .send()
             .await?
             .text()
             .await?;
 
-        let status: Status =
+        let response: UploadResponse =
             serde_json::from_str(&result).map_err(|e| Error::SerdeJSONError(e, result))?;
 
-        Ok(status)
-    }
-
-    pub fn get_uploader(&self, filename: String) -> uploader::Uploader {
-        uploader::Uploader::new(
-            self.token.clone(),
-            self.base_url.clone(),
-            filename,
-            uploader::UploadType::Car,
-            1,
-            Some(Arc::new(Mutex::new(|name, part, pos, total| {
-                log::debug!("name: {name} part:{part} {pos}/{total}");
-            }))),
-        )
-    }
-
-    pub fn get_car_writer(
-        &self,
-        filename: String,
-        uploader: uploader::Uploader,
-    ) -> car::Car<uploader::Uploader> {
-        car::Car::new(
-            1,
-            Arc::new(Mutex::new(vec![car::single_file_to_directory_item(
-                &filename, None,
-            )])),
-            None,
-            None,
-            uploader,
-        )
+        Ok(response)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::web3storage::Web3StorageClient;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+#[derive(Clone)]
+pub struct Web3StorageMock {}
 
-    #[tokio::test]
-    async fn status_of_cid() {
-        let mock_server = MockServer::start().await;
+#[async_trait]
+impl Web3Storage for Web3StorageMock {
+    async fn upload(
+        &self,
+        _stream: impl StreamExt<Item = Result<Bytes, google_cloud_storage::http::Error>>
+            + Sync
+            + Send
+            + 'static,
+        _filename: &str,
+    ) -> Result<UploadResponse, Error> {
+        let h = Code::Sha2_256.digest(b"mocked cid");
+        const RAW: u64 = 0x55;
+        let cid = Cid::new_v1(RAW, h);
 
-        let web3storage_client = Web3StorageClient::new(mock_server.uri(), String::from(""));
-
-        let status_response = r#"{"cid":"bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i","dagSize":380733,"created":"2023-10-27T20:08:24.015+00:00","pins":[{"status":"Pinned","updated":"2023-10-27T20:08:24.015+00:00","peerId":"bafzbeibhqavlasjc7dvbiopygwncnrtvjd2xmryk5laib7zyjor6kf3avm","peerName":"elastic-ipfs","region":null}],"deals":[{"dealId":60497440,"storageProvider":"f01392893","status":"Active","pieceCid":"baga6ea4seaqmjfxq45gotde77ay7sqljb7gt5gns3vojgwoj3fb3zmqvddkx2py","dataCid":"bafybeibbpkhnm5wdyw2y2zirndu2coa7mw67vg52hzsl3ogae4owajkd4q","dataModelSelector":"Links/4/Hash/Links/54/Hash/Links/0/Hash","activation":"2023-10-31T07:33:00+00:00","expiration":"2025-04-15T07:33:00+00:00","created":"2023-10-31T13:20:03.875131+00:00","updated":"2023-10-31T13:20:03.875131+00:00"}]}"#;
-        let response = ResponseTemplate::new(200).set_body_string(status_response);
-
-        Mock::given(method("GET"))
-            .and(path(
-                "/status/bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
-            ))
-            .respond_with(response)
-            .expect(1)
-            .mount(&mock_server)
-            .await;
-
-        let status = web3storage_client
-            .status_of_cid("bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i")
-            .await
-            .unwrap();
-
-        assert_eq!(
-            "bafybeibw2zctx4ca3udcfcsizjmo57bomhb6vvzf63rvc25d6hzotncn2i",
-            status.cid
-        );
-        assert_eq!(380733, status.dag_size);
-        assert_eq!("2023-10-27T20:08:24.015+00:00", status.created);
-
-        // pin
-        assert_eq!("Pinned", status.pins[0].status);
-        assert_eq!("2023-10-27T20:08:24.015+00:00", status.pins[0].updated);
-        assert_eq!(
-            "bafzbeibhqavlasjc7dvbiopygwncnrtvjd2xmryk5laib7zyjor6kf3avm",
-            status.pins[0].peer_id
-        );
-        assert_eq!("elastic-ipfs", status.pins[0].peer_name);
-        assert_eq!(None, status.pins[0].region);
-
-        // deal
-        assert_eq!(Some(60497440), status.deals[0].deal_id);
-        assert_eq!(
-            Some("f01392893".to_string()),
-            status.deals[0].storage_provider
-        );
-        assert_eq!("Active", status.deals[0].status);
-        assert_eq!(
-            "baga6ea4seaqmjfxq45gotde77ay7sqljb7gt5gns3vojgwoj3fb3zmqvddkx2py",
-            status.deals[0].piece_cid
-        );
-        assert_eq!(
-            "bafybeibbpkhnm5wdyw2y2zirndu2coa7mw67vg52hzsl3ogae4owajkd4q",
-            status.deals[0].data_cid
-        );
-        assert_eq!(
-            "Links/4/Hash/Links/54/Hash/Links/0/Hash",
-            status.deals[0].data_model_selector
-        );
-        assert_eq!(
-            Some("2023-10-31T07:33:00+00:00".to_string()),
-            status.deals[0].activation
-        );
-        assert_eq!(
-            Some("2025-04-15T07:33:00+00:00".to_string()),
-            status.deals[0].expiration
-        );
-        assert_eq!(
-            Some("2023-10-31T13:20:03.875131+00:00".to_string()),
-            status.deals[0].created
-        );
-        assert_eq!(
-            Some("2023-10-31T13:20:03.875131+00:00".to_string()),
-            status.deals[0].updated
-        );
+        Ok(UploadResponse {
+            root: cid.to_string(),
+            shard: cid.to_string(),
+        })
     }
 }
