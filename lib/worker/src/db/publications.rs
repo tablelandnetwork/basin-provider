@@ -210,12 +210,12 @@ fn pub_cids_build_query(
     query.push_bind(rel);
 
     if *after > 0 {
-        query.push(" AND timestamp >= ");
+        query.push(" AND timestamp > ");
         query.push_bind(after);
     }
 
     if *before > 0 {
-        query.push(" AND timestamp <= ");
+        query.push(" AND timestamp < ");
         query.push_bind(before);
     }
 
@@ -237,6 +237,6 @@ mod tests {
         assert_eq!("SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 ORDER BY jobs.id DESC LIMIT $3 OFFSET $4", sql);
 
         let sql = pub_cids_build_query("ns", "rel", &1, &1, &1699395131, &1699395131);
-        assert_eq!("SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp >= $3 AND timestamp <= $4 ORDER BY jobs.id DESC LIMIT $5 OFFSET $6", sql);
+        assert_eq!("SELECT cid, timestamp, expires_at FROM jobs JOIN namespaces ON namespaces.id = jobs.ns_id WHERE name = $1 AND relation = $2 AND timestamp > $3 AND timestamp < $4 ORDER BY jobs.id DESC LIMIT $5 OFFSET $6", sql);
     }
 }
