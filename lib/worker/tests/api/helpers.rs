@@ -145,6 +145,18 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
+    pub async fn get_vaults_v2(&self) -> Response {
+        self.api_client
+            .get(&format!(
+                "{}/v2/vaults?account={:#x}",
+                &self.address,
+                self.account.address()
+            ))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
     pub async fn get_events_from_vaults(&self, vault: &str) -> Response {
         self.api_client
             .get(&format!("{}/vaults/{}/events", &self.address, vault))

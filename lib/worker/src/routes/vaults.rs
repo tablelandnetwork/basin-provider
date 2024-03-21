@@ -5,6 +5,7 @@ use crate::domain::Vault;
 use crate::gcs::GcsClient;
 use crate::web3storage::Web3Storage;
 use hex::ToHex;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use basin_evm::EVMClient;
@@ -148,6 +149,82 @@ pub async fn find_vaults_by_account<E: EVMClient + 'static + std::marker::Sync>(
     };
 
     Ok(with_status(json(&vaults), StatusCode::OK))
+}
+
+pub async fn find_vaults_by_account_v2<E: EVMClient + 'static + std::marker::Sync>(
+    evm_client: E,
+    pool: PgPool,
+    params: FindVaultsByAccountParams,
+) -> Result<impl warp::Reply, Infallible> {
+    let account = match Address::from_str(params.account.as_str()) {
+        Ok(v) => v,
+        Err(_) => {
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "account is invalid".to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
+    let vaults = match evm_client.list_pub(account).await {
+        Ok(vaults) => vaults
+            .into_iter()
+            .map(|s| Vault::from(s).unwrap())
+            .collect::<Vec<Vault>>(),
+        Err(err) => {
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: err.to_string(),
+                }),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
+    #[derive(Serialize)]
+    struct ResponseItem {
+        vault: String,
+        cache_duration: Option<i64>,
+    }
+
+    let mut response: Vec<ResponseItem> = Vec::new();
+    let rows = match db::find_cache_config_by_vaults(&pool, vaults.clone()).await {
+        Ok(v) => v,
+        Err(err) => {
+            log::error!("{}", err);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "error fetching the cache config".to_string(),
+                }),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+    };
+
+    let mut vault_duration_map: HashMap<String, Option<i64>> = HashMap::new();
+    for row in rows {
+        vault_duration_map.insert(row.0, row.1);
+    }
+
+    for vault in vaults {
+        let vault_name = vault.to_string();
+        let item = match vault_duration_map.get(&vault_name) {
+            Some(&duration) => ResponseItem {
+                vault: vault_name,
+                cache_duration: duration,
+            },
+            None => ResponseItem {
+                vault: vault_name,
+                cache_duration: None,
+            },
+        };
+
+        response.push(item);
+    }
+
+    Ok(with_status(json(&response), StatusCode::OK))
 }
 
 #[derive(Debug, Deserialize)]
@@ -408,19 +485,18 @@ pub async fn write_event<W: Web3Storage>(
         }
     }
 
-    let cache_duration =
-        match db::get_cache_config(&pool, &vault.namespace(), &vault.relation()).await {
-            Ok(v) => v,
-            Err(err) => {
-                log::error!("{}", err);
-                return Ok(with_status(
-                    json(&ErrorResponse {
-                        error: "error fetching the cache config".to_string(),
-                    }),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ));
-            }
-        };
+    let cache_duration = match db::get_cache_config(&pool, &vault).await {
+        Ok(v) => v,
+        Err(err) => {
+            log::error!("{}", err);
+            return Ok(with_status(
+                json(&ErrorResponse {
+                    error: "error fetching the cache config".to_string(),
+                }),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+    };
 
     let filename = format!(
         "{}/{}/{}-{}",

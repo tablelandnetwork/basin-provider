@@ -70,15 +70,38 @@ pub async fn is_namespace_owner(pool: &PgPool, ns: &str, owner: Address) -> Resu
     Ok(!res.is_empty())
 }
 
-/// Returns cache config
-pub async fn get_cache_config(pool: &PgPool, ns: &str, rel: &str) -> Result<Option<i64>> {
+/// Returns cache config from a vault
+pub async fn get_cache_config(pool: &PgPool, vault: &Vault) -> Result<Option<i64>> {
     let (duration, ) : (Option<i64>, ) = sqlx::query_as("SELECT duration FROM cache_config JOIN namespaces ON ns_id = namespaces.id WHERE name = $1 AND relation = $2")
-        .bind(ns)
-        .bind(rel)
+        .bind(vault.namespace())
+        .bind(vault.relation())
         .fetch_one(pool)
         .await
         .unwrap_or((None, ));
     Ok(duration)
+}
+
+pub async fn find_cache_config_by_vaults(
+    pool: &PgPool,
+    vaults: Vec<Vault>,
+) -> Result<Vec<(String, Option<i64>)>> {
+    let where_clause = (1..2 * vaults.len() + 1)
+        .step_by(2)
+        .map(|i| format!("(name = ${} AND relation = ${})", i, i + 1))
+        .collect::<Vec<String>>()
+        .join(" OR ");
+
+    let sql = format!("SELECT name || '.' || relation as vault, duration FROM namespaces JOIN cache_config ON ns_id = namespaces.id WHERE {}", where_clause);
+    let mut query = sqlx::query(sql.as_str());
+    for vault in vaults {
+        query = query.bind(vault.namespace()).bind(vault.relation());
+    }
+
+    query
+        .map(|row: PgRow| (row.get("vault"), row.get("duration")))
+        .fetch_all(pool)
+        .await
+        .map_err(basin_common::errors::Error::from)
 }
 
 // Unsets cache_path and expires_at
