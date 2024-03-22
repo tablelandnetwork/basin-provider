@@ -39,6 +39,7 @@ mod api {
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         health()
             .or(vaults_list(evm_client.clone()))
+            .or(vaults_list_v2(evm_client.clone(), db.clone()))
             .or(vaults_create(evm_client, db.clone()))
             .or(vaults_events_create(
                 db.clone(),
@@ -65,6 +66,19 @@ mod api {
             .and(with_evm_client(evm_client))
             .and(warp::query::<FindVaultsByAccountParams>())
             .and_then(routes::find_vaults_by_account)
+    }
+
+    // GET /v2/vaults
+    pub fn vaults_list_v2<E: EVMClient + 'static + std::marker::Sync>(
+        evm_client: E,
+        db: PgPool,
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+        warp::path!("v2" / "vaults")
+            .and(warp::get())
+            .and(with_evm_client(evm_client))
+            .and(with_db(db))
+            .and(warp::query::<FindVaultsByAccountParams>())
+            .and_then(routes::find_vaults_by_account_v2)
     }
 
     // POST /vaults/:id

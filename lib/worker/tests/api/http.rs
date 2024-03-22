@@ -38,6 +38,37 @@ async fn list_vaults() {
 }
 
 #[tokio::test]
+async fn list_vaults_v2() {
+    let app = spawn_app().await;
+
+    // setup
+    app.create_vault("api.test").await;
+    app.create_vault_with_cache("api.test2", 100).await;
+
+    // make request
+    let response = app
+        .get_vaults_v2()
+        .await
+        .text()
+        .await
+        .unwrap()
+        .parse::<serde_json::Value>()
+        .unwrap();
+    assert_eq!(
+        json!([
+        {
+            "vault": "api.test",
+            "cache_duration": null,
+        },
+        {
+            "vault": "api.test2",
+            "cache_duration": 100,
+        }]),
+        response
+    );
+}
+
+#[tokio::test]
 async fn list_events() {
     let app = spawn_app().await;
 
