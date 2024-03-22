@@ -190,7 +190,7 @@ pub async fn find_vaults_by_account_v2<E: EVMClient + 'static + std::marker::Syn
     }
 
     let mut response: Vec<ResponseItem> = Vec::new();
-    let rows = match db::find_cache_config_by_vaults(&pool, vaults.clone()).await {
+    let rows = match db::find_cache_config_by_vaults(&pool, &vaults).await {
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);

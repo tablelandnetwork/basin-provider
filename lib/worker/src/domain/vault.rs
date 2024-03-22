@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Vault {
     ns: String,
     rel: String,

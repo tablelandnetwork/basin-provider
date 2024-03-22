@@ -83,7 +83,7 @@ pub async fn get_cache_config(pool: &PgPool, vault: &Vault) -> Result<Option<i64
 
 pub async fn find_cache_config_by_vaults(
     pool: &PgPool,
-    vaults: Vec<Vault>,
+    vaults: &Vec<Vault>,
 ) -> Result<Vec<(String, Option<i64>)>> {
     let where_clause = (1..2 * vaults.len() + 1)
         .step_by(2)
