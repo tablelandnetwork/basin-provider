@@ -253,6 +253,16 @@ async fn create_vault() {
     assert_eq!("api.test", vaults[0]);
 }
 
+#[tokio::test]
+async fn create_vault_already_exists() {
+    let app = spawn_app().await;
+
+    app.create_vault("api.test").await;
+    let response = app.create_vault("api.test").await;
+
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn write_event() {
     let app = spawn_app().await;

@@ -11,6 +11,7 @@ use std::str::FromStr;
 use basin_evm::EVMClient;
 use chrono::DateTime;
 
+use basin_common::errors::Error;
 use ethers::types::Address;
 use futures::StreamExt;
 use google_cloud_storage::http::objects::download::Range;
@@ -389,15 +390,25 @@ pub async fn create_vault<E: EVMClient + 'static + std::marker::Sync>(
         .await
     {
         Ok(_) => {}
-        Err(err) => {
-            log::error!("{}", err);
-            return Ok(with_status(
-                json(&ErrorResponse {
-                    error: "failed to create vault".to_string(),
-                }),
-                StatusCode::BAD_REQUEST,
-            ));
-        }
+        Err(err) => match err {
+            Error::EvmPublicationExists => {
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "publication already exists".to_string(),
+                    }),
+                    StatusCode::CONFLICT,
+                ))
+            }
+            _ => {
+                log::error!("{}", err);
+                return Ok(with_status(
+                    json(&ErrorResponse {
+                        error: "failed to create vault".to_string(),
+                    }),
+                    StatusCode::BAD_REQUEST,
+                ));
+            }
+        },
     }
 
     let created = match db::namespace_create(

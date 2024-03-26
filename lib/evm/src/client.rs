@@ -43,7 +43,13 @@ impl EVMClient for BasinClient {
             .create_pub(owner, name.into())
             .send()
             .await
-            .map_err(|e| Error::Evm(e.to_string()))?;
+            .map_err(|e| {
+                if e.is_revert() {
+                    return Error::EvmPublicationExists;
+                }
+                Error::Evm(e.to_string())
+            })?;
+
         Ok(())
     }
 

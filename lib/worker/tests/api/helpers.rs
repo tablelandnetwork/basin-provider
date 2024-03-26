@@ -109,7 +109,7 @@ impl TestApp {
             .expect("Failed to execute request")
     }
 
-    pub async fn create_vault(&self, name: &str) {
+    pub async fn create_vault(&self, name: &str) -> Response {
         self.api_client
             .post(&format!("{}/vaults/{}", &self.address, name))
             .form::<CreateVaultInput>(&CreateVaultInput {
@@ -118,7 +118,7 @@ impl TestApp {
             })
             .send()
             .await
-            .expect("Failed to execute request.");
+            .expect("Failed to execute request.")
     }
 
     pub async fn create_vault_with_cache(&self, name: &str, cache: i64) {

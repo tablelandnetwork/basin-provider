@@ -14,6 +14,8 @@ pub enum Error {
     Url(String),
     #[error("EVM error: {0}")]
     Evm(String),
+    #[error("EVM publication exists")]
+    EvmPublicationExists,
     #[error("Upload error: {0}")]
     Upload(String),
 }
