@@ -63,7 +63,12 @@ impl EVMClient for MockClient {
             .create_pub(owner, name.into())
             .send()
             .await
-            .unwrap();
+            .map_err(|e| {
+                if e.is_revert() {
+                    return Error::EvmPublicationExists;
+                }
+                Error::Evm(e.to_string())
+            })?;
         Ok(())
     }
 
