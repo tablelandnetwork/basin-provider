@@ -207,9 +207,12 @@ pub async fn find_job_cache_path_by_cid(pool: &PgPool, cid: Cid) -> Result<Optio
         )
         .as_str(),
     )
-    .map(|row: PgRow| {
-        row.try_get("cache_path")
-            .map_or(None, |v| Some(CachePath::from(v)))
+    .map(|row: PgRow| match row.try_get("cache_path") {
+        Ok(v) => Some(CachePath::from(v)),
+        Err(err) => {
+            log::error!("try get cache_path, err = {:?}", err);
+            None
+        }
     })
     .fetch_one(pool)
     .await

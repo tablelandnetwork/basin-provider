@@ -42,7 +42,7 @@ pub async fn find_event_by_id(
     pool: PgPool,
     gcs_client: GcsClient,
 ) -> Result<Box<dyn warp::Reply>, Infallible> {
-    let cid: Cid = match path.try_into() {
+    let cid: Cid = match path.clone().try_into() {
         Ok(v) => v,
         Err(err) => {
             return Ok(Box::new(with_status(
@@ -70,6 +70,7 @@ pub async fn find_event_by_id(
     let cache_path = match cache_path {
         Some(path) => path,
         None => {
+            log::info!("cache path is none, cid = {}", path);
             let empty: Vec<u8> = Vec::new();
             return Ok(Box::new(with_status(json(&empty), StatusCode::NOT_FOUND)));
         }
